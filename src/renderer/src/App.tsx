@@ -5,6 +5,7 @@ import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
 import { OfficeFloor } from '@/scene/office/OfficeFloor';
 import { useHive } from '@/hooks/useHive';
+import { useHermesPoll } from '@/hooks/useHermesPoll';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 import { useGodNameSync } from '@/i18n/useGodNameSync';
 import { useDirectionSync } from '@/i18n/useDirection';
@@ -192,6 +193,10 @@ export function App() {
   // hook) so Michael doesn't boot against the current home while the user may be
   // about to switch to a different one.
   useHive(hiveOpened ? config : null);
+
+  // The 17-agent Hermes department roster, driven by a real 5s poll of
+  // ~/.hermes/kanban.db (read-only) — independent of the hive/PTY system above.
+  useHermesPoll(Boolean(config?.onboardingComplete));
 
   // Pre-warm a persistent terminal for every live agent so its output is
   // buffered from spawn. Switching agents then re-attaches an already-rendered

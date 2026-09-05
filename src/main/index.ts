@@ -25,6 +25,7 @@ import {
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
+import { pollHermesRunningProfiles } from './hermesKanban';
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
@@ -3568,6 +3569,9 @@ ipcMain.handle('hive:mineNow', () => { memory.mineNow(); return { ok: true }; })
 // the size trigger — a "condense now" button); no id runs a full threshold scan.
 ipcMain.handle('memory:reflectNow', (_evt, id: unknown) =>
   reflector.reflectNow(typeof id === 'string' && id ? id : undefined));
+
+// ─── IPC: Hermes kanban bridge (read-only; Hermes' own gateway is the writer) ─
+ipcMain.handle('hermes:pollRunningProfiles', () => pollHermesRunningProfiles());
 
 // ─── IPC: enterprise Knowledge Graph (multimodal context for agents) ─────────
 ipcMain.handle('kg:status', () => knowledge.status());

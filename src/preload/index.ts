@@ -816,6 +816,9 @@ const api = {
   reflectNow: (id?: string): Promise<Array<{ id: string; condensed: boolean; reason: string; oldBytes?: number; newBytes?: number }>> =>
     ipcRenderer.invoke('memory:reflectNow', id),
 
+  // ─── Hermes kanban bridge (read-only poll — which profiles have a running task) ─
+  hermesPollRunningProfiles: (): Promise<string[]> => ipcRenderer.invoke('hermes:pollRunningProfiles'),
+
   // ─── Enterprise Knowledge Graph (multimodal context for agents) ───────────
   kgStatus: (): Promise<KnowledgeStatus> => ipcRenderer.invoke('kg:status'),
   kgList: (): Promise<KnowledgeDoc[]> => ipcRenderer.invoke('kg:list'),

@@ -145,18 +145,25 @@ function maybeFlyMessage(mockIds: string[]): void {
   window.dispatchEvent(new CustomEvent('cth:demo-handoff', { detail: { from, to, act } }));
 }
 
+/** `hermes-*` ids are driven for real by useHermesPoll.ts (a live 5s poll of
+ *  Hermes' kanban board) — never step them here or the random walk fights it. */
+function isMockable(a: Agent): boolean {
+  return !a.ptyId && !a.id.startsWith('hermes-');
+}
+
 let interval: number | null = null;
 
 export function startMockLoop() {
   if (interval !== null) return;
   interval = window.setInterval(() => {
     const { agents } = useStore.getState();
-    // Only step mock agents (no ptyId). Real agents are driven by the pty parser.
-    for (const a of agents) if (!a.ptyId) stepAgent(a);
+    // Only step mock agents (no ptyId, not Hermes-driven). Real agents are
+    // driven by the pty parser.
+    for (const a of agents) if (isMockable(a)) stepAgent(a);
 
     const { agents: a2, updateAgent } = useStore.getState();
     for (const a of a2) {
-      if (a.ptyId) continue;
+      if (!isMockable(a)) continue;
       if (a.status === 'thinking' && a.currentStation === 'desk' && Math.random() < 0.4) {
         updateAgent(a.id, {
           status: 'idle',
@@ -168,7 +175,7 @@ export function startMockLoop() {
       }
     }
 
-    maybeFlyMessage(a2.filter((a) => !a.ptyId).map((a) => a.id));
+    maybeFlyMessage(a2.filter(isMockable).map((a) => a.id));
   }, TICK_MS) as unknown as number;
 }
 
