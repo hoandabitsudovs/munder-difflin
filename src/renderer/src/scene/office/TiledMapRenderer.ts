@@ -1,4 +1,4 @@
-import { Container, Sprite, Texture, Rectangle } from 'pixi.js';
+import { Container, Sprite, Texture, Rectangle, Graphics } from 'pixi.js';
 import {
   Projection,
   orthoProjection,
@@ -6,6 +6,8 @@ import {
   tileToFoot as projTileToFoot,
   depthKey as projDepthKey,
 } from './projection';
+import { accentByName } from '@/design/tokens';
+import { DEPARTMENT_ACCENT, type Department } from '@/data/hermesRoster';
 
 // Trimmed port of shahar061/the-office (office/engine/TiledMapRenderer.ts):
 // renders floor/walls/furniture tile layers and parses collision, spawn-points
@@ -216,6 +218,15 @@ export class TiledMapRenderer {
   }
 
   private buildTileLayers(): void {
+    // ISO retrofit (stage 1, RETROFIT_PLAN.md §3.3b): draw a procedural
+    // isometric floor from the logical grid + department zones instead of the
+    // top-down tileset layers. Characters (positioned via tileToFoot, which is
+    // now iso) render on top. Furniture/decorations stay a later stage.
+    if (this.projection.kind === 'iso') {
+      this.buildIsoFloor();
+      this.rootContainer.addChild(this.characterContainer);
+      return;
+    }
     if (this.mapData.tilesets.length === 0) return;
 
     for (const layerName of TILE_LAYERS) {
@@ -285,7 +296,50 @@ export class TiledMapRenderer {
     this.rootContainer.addChild(this.characterContainer);
   }
 
+  /** Procedural isometric floor: one diamond per tile, department zones tinted
+   *  with their accent, everything else a neutral floor. Two-shade checker for
+   *  read. Drawn in one Graphics behind the character container. */
+  private buildIsoFloor(): void {
+    if (this.projection.kind !== 'iso') return;
+    const p = this.projection;
+    const hw = p.tileW / 2, hh = p.tileH / 2;
+
+    // per-tile department lookup from the zones layer
+    const zoneOf: (string | undefined)[] = new Array(this.width * this.height);
+    for (const [name, r] of this.zones) {
+      for (let y = r.y; y < r.y + r.height; y++) {
+        for (let x = r.x; x < r.x + r.width; x++) {
+          if (x >= 0 && y >= 0 && x < this.width && y < this.height) zoneOf[y * this.width + x] = name;
+        }
+      }
+    }
+
+    const NEUTRAL = 0x8f9a86; // warm office-floor grey-green
+    const g = new Graphics();
+    for (let ty = 0; ty < this.height; ty++) {
+      for (let tx = 0; tx < this.width; tx++) {
+        const dept = zoneOf[ty * this.width + tx];
+        const base = dept ? accentByName[DEPARTMENT_ACCENT[dept as Department]] ?? NEUTRAL : NEUTRAL;
+        // department tiles lift toward their accent; plain floor stays muted
+        const light = mixHex(base, 0xffffff, dept ? 0.55 : 0.72);
+        const dark = mixHex(base, 0xffffff, dept ? 0.44 : 0.66);
+        const c = (tx + ty) % 2 === 0 ? light : dark;
+        const { x, y } = projTileToFoot(p, tx, ty);
+        g.poly([x, y - hh, x + hw, y, x, y + hh, x - hw, y]).fill({ color: c });
+      }
+    }
+    g.zIndex = -1e9;
+    this.rootContainer.addChild(g);
+  }
+
   private findLayer(name: string, type: 'tilelayer' | 'objectgroup'): TiledLayer | undefined {
     return this.mapData.layers.find((l) => l.name === name && l.type === type);
   }
+}
+
+function mixHex(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+  const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+  const r = Math.round(ar + (br - ar) * t), gg = Math.round(ag + (bg - ag) * t), bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (gg << 8) | bl;
 }

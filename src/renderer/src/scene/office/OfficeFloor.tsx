@@ -5,6 +5,7 @@ import { Application, Container, Graphics, Ticker, Texture, Text } from 'pixi.js
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
 import { TiledMapRenderer } from './TiledMapRenderer';
+import { isoProjection } from './projection';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
 import { DeskScreen } from './DeskScreen';
@@ -174,6 +175,9 @@ export function OfficeFloor() {
   // whole scene is torn down and rebuilt through the existing mount path rather
   // than through a second, parallel recovery routine.
   const [glGeneration, setGlGeneration] = useState(0);
+  // ISO retrofit (stage 1): flip the office to an isometric projection + floor.
+  // Off by default — the top-down office is still the production view.
+  const [isoMode, setIsoMode] = useState(false);
   // Retries spent on an init that could not GET a context (see glRecovery.ts).
   // A ref, not state: the budget has to survive the rebuilds it schedules, which
   // re-run the effect below and would reset anything scoped to it.
@@ -285,7 +289,11 @@ export function OfficeFloor() {
       const world = new Container();
       app.stage.addChild(world);
 
-      const mapRenderer = new TiledMapRenderer(resolveThemeMap(theme), tilesetTextures);
+      const themeMap = resolveThemeMap(theme);
+      const projection = isoMode
+        ? isoProjection(themeMap.tilewidth, themeMap.width, themeMap.height)
+        : undefined;
+      const mapRenderer = new TiledMapRenderer(themeMap, tilesetTextures, projection);
       world.addChild(mapRenderer.getContainer());
       const charLayer = mapRenderer.getCharacterContainer();
       const tileCount = mapRenderer.getContainer().children.reduce(
@@ -293,7 +301,13 @@ export function OfficeFloor() {
       console.log(`[OfficeFloor] map ${mapRenderer.width}x${mapRenderer.height}, ${tileCount} tile sprites rendered`);
 
       const camera = new Camera(world);
-      camera.setMapSize(mapRenderer.width * mapRenderer.tileSize, mapRenderer.height * mapRenderer.tileSize);
+      // Iso maps span (W+H)*tileW/2 wide and (W+H)*tileH/2 tall on screen.
+      if (isoMode) {
+        const tw = mapRenderer.tileSize * 2, th = mapRenderer.tileSize;
+        camera.setMapSize((mapRenderer.width + mapRenderer.height) * (tw / 2), (mapRenderer.width + mapRenderer.height) * (th / 2));
+      } else {
+        camera.setMapSize(mapRenderer.width * mapRenderer.tileSize, mapRenderer.height * mapRenderer.tileSize);
+      }
       camera.setViewSize(app.screen.width, app.screen.height);
       camera.fitToScreen();
 
@@ -1812,19 +1826,35 @@ export function OfficeFloor() {
       appRef.current = null;
       while (host.firstChild) host.removeChild(host.firstChild);
     };
-  }, [officeTheme, glGeneration, i18n.language]);
+  }, [officeTheme, glGeneration, i18n.language, isoMode]);
 
   return (
-    <div
-      ref={hostRef}
-      style={{
-        width: '100%', height: '100%',
-        boxShadow: 'var(--cth-panel-border)',
-        overflow: 'hidden',
-        imageRendering: 'pixelated',
-        background: hex(colors.ink[900]),
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div
+        ref={hostRef}
+        style={{
+          width: '100%', height: '100%',
+          boxShadow: 'var(--cth-panel-border)',
+          overflow: 'hidden',
+          imageRendering: 'pixelated',
+          background: hex(colors.ink[900]),
+        }}
+      />
+      {import.meta.env.DEV && (
+        <button
+          onClick={() => setIsoMode((m) => !m)}
+          title="Alternar oficina isométrica (dev, en construcción)"
+          style={{
+            position: 'absolute', right: 12, top: 12, zIndex: 50,
+            font: '11px ui-monospace, monospace', padding: '5px 9px',
+            background: isoMode ? '#4f6f9f' : '#2b2436', color: '#e8e2f0',
+            border: '1px solid #4f6f9f', borderRadius: 8, cursor: 'pointer',
+          }}
+        >
+          {isoMode ? '◆ iso ON' : '◇ iso OFF'}
+        </button>
+      )}
+    </div>
   );
 }
 
