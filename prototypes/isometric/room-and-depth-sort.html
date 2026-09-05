@@ -1,0 +1,125 @@
+<title>iso_room_poc</title>
+<style>
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 1rem 0; }
+  canvas { background: var(--surface-1); border-radius: 12px; border: 0.5px solid var(--border); }
+  .pad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 4px; }
+  .pad button { padding: 0; display: flex; align-items: center; justify-content: center; }
+  .pad span { visibility: hidden; }
+  .note { font-size: 13px; color: var(--text-secondary); text-align: center; max-width: 420px; }
+</style>
+<div class="wrap">
+  <h2 class="sr-only">Prototipo de renderizado isométrico: piso, un pilar con altura, y un personaje que se ordena correctamente en profundidad al caminar delante o detrás del pilar</h2>
+  <canvas id="c" width="520" height="380"></canvas>
+  <div class="pad">
+    <span></span><button id="up" aria-label="Arriba"><i class="ti ti-arrow-up" aria-hidden="true"></i></button><span></span>
+    <button id="left" aria-label="Izquierda"><i class="ti ti-arrow-left" aria-hidden="true"></i></button><span></span><button id="right" aria-label="Derecha"><i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+    <span></span><button id="down" aria-label="Abajo"><i class="ti ti-arrow-down" aria-hidden="true"></i></button><span></span>
+  </div>
+  <p class="note" id="note">Mové al personaje con las flechas. Cuando pasa por detrás del pilar queda oculto; cuando pasa por delante, tapa al pilar.</p>
+</div>
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const GRID = 6;
+  const TILE_W = 64, TILE_H = 32, WALL_H = 46;
+  const originX = canvas.width / 2, originY = 60;
+  const PILLAR = { tx: 3, ty: 2 };
+  const char = { tx: 1, ty: 4 };
+
+  function project(tx, ty) {
+    return {
+      x: originX + (tx - ty) * (TILE_W / 2),
+      y: originY + (tx + ty) * (TILE_H / 2)
+    };
+  }
+
+  function diamond(cx, cy, w, h) {
+    return [[cx, cy - h / 2], [cx + w / 2, cy], [cx, cy + h / 2], [cx - w / 2, cy]];
+  }
+
+  function fillPoly(pts, color) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function drawFloorTile(tx, ty) {
+    const p = project(tx, ty);
+    const shade = (tx + ty) % 2 === 0 ? '#cbb894' : '#c2ad86';
+    fillPoly(diamond(p.x, p.y, TILE_W, TILE_H), shade);
+  }
+
+  function drawPillar(tx, ty) {
+    const base = project(tx, ty);
+    const top = { x: base.x, y: base.y - WALL_H };
+    const topD = diamond(top.x, top.y, TILE_W, TILE_H);
+    const baseD = diamond(base.x, base.y, TILE_W, TILE_H);
+    // left face: left+bottom vertices of top diamond down to left+bottom of base diamond
+    fillPoly([topD[3], topD[2], baseD[2], baseD[3]], '#6b5638');
+    // right face: right+bottom vertices
+    fillPoly([topD[1], topD[2], baseD[2], baseD[1]], '#54432b');
+    // top face
+    fillPoly(topD, '#8a714a');
+  }
+
+  function drawCharacter(tx, ty) {
+    const p = project(tx, ty);
+    const footY = p.y + 6;
+    // shadow
+    fillPoly(diamond(p.x, footY + 2, 20, 8), 'rgba(0,0,0,0.18)');
+    // legs
+    ctx.fillStyle = '#3a3140';
+    ctx.fillRect(p.x - 5, footY - 12, 4, 12);
+    ctx.fillRect(p.x + 1, footY - 12, 4, 12);
+    // body
+    ctx.fillStyle = '#3c6e9e';
+    ctx.fillRect(p.x - 8, footY - 28, 16, 18);
+    // head
+    ctx.fillStyle = '#e7b78c';
+    ctx.beginPath();
+    ctx.arc(p.x, footY - 34, 8, 0, Math.PI * 2);
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = '#2a2432';
+    ctx.fillRect(p.x - 4, footY - 35, 2, 2);
+    ctx.fillRect(p.x + 2, footY - 35, 2, 2);
+  }
+
+  function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const drawables = [];
+    for (let ty = 0; ty < GRID; ty++) {
+      for (let tx = 0; tx < GRID; tx++) {
+        if (tx === PILLAR.tx && ty === PILLAR.ty) continue;
+        drawables.push({ depth: tx + ty - 0.1, draw: () => drawFloorTile(tx, ty) });
+      }
+    }
+    drawables.push({ depth: PILLAR.tx + PILLAR.ty, draw: () => drawPillar(PILLAR.tx, PILLAR.ty) });
+    drawables.push({ depth: char.tx + char.ty + 0.05, draw: () => drawCharacter(char.tx, char.ty) });
+    drawables.sort((a, b) => a.depth - b.depth);
+    for (const d of drawables) d.draw();
+  }
+
+  function move(dtx, dty) {
+    const nx = char.tx + dtx, ny = char.ty + dty;
+    if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) return;
+    if (nx === PILLAR.tx && ny === PILLAR.ty) return;
+    char.tx = nx; char.ty = ny;
+    redraw();
+  }
+
+  document.getElementById('up').onclick = () => move(0, -1);
+  document.getElementById('down').onclick = () => move(0, 1);
+  document.getElementById('left').onclick = () => move(-1, 0);
+  document.getElementById('right').onclick = () => move(1, 0);
+
+  redraw();
+})();
+</script>
