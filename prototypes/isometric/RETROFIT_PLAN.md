@@ -11,6 +11,27 @@ el HANDOFF. **Nada de esto está implementado todavía**; es el mapa para hacerl
 > sprites) hoy funciona en producción. El retrofit lo toca en su núcleo — hacerlo por
 > partes, cada una verificable, y detrás de un flag hasta que el modo iso esté completo.
 
+## Progreso (actualizado 5 sept)
+
+- ✅ **§2 (refactor `tileToFoot`)** — hecho. Un solo helper en `TiledMapRenderer`, los
+  3 call-sites de `Character.ts` ruteados. Typecheck limpio, cero cambio visual.
+- ✅ **§2b · abstracción `Projection`** — `src/renderer/src/scene/office/projection.ts`
+  (nuevo): geometría tile↔pantalla aislada, variantes `ortho` (idéntica a la de antes,
+  default) e `iso`, más `depthKey` (la clave única de profundidad). `TiledMapRenderer`
+  delega `tileToPixel`/`tileToFoot` y expone `depthKey()`/`getProjection()`. Typecheck
+  limpio; producción sigue en `ortho` sin cambios. **El switch a iso ahora es pasar una
+  `isoProjection(...)` al constructor — un solo lugar.**
+- ✅ **§3.1-3.2 · depth-sort unificado — LÓGICA validada** (no integrada aún):
+  [engine-parity-scene.mjs](engine-parity-scene.mjs) rinde la escena mínima (2 pers. +
+  1 pared) ordenando TODO por la misma `depthKey` (baseline-y) que devuelve
+  `projection.ts`, sin pila de capas. Oclusión correcta en ambos sentidos verificada
+  (personaje detrás → tapado por la pared; adelante → tapa la pared).
+- ⏳ **Pendiente de la sesión con app viva:** reemplazar la pila fija de contenedores en
+  `buildTileLayers` por el contenedor sortable real, el arte iso procedural sobre la
+  grilla lógica (§3.3b), bounds de cámara iso, y sprites de personaje en 4 direcciones.
+  Requiere correr la app con ojos encima (el arte de `office.tmj` es cenital, así que
+  encender iso sobre el mapa real recién tiene sentido con el arte procedural puesto).
+
 ---
 
 ## 0 · Qué se verificó del motor actual (esta sesión, con file:line)

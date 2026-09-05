@@ -1,4 +1,11 @@
 import { Container, Sprite, Texture, Rectangle } from 'pixi.js';
+import {
+  Projection,
+  orthoProjection,
+  tileToPixel as projTileToPixel,
+  tileToFoot as projTileToFoot,
+  depthKey as projDepthKey,
+} from './projection';
 
 // Trimmed port of shahar061/the-office (office/engine/TiledMapRenderer.ts):
 // renders floor/walls/furniture tile layers and parses collision, spawn-points
@@ -62,13 +69,21 @@ export class TiledMapRenderer {
   private zones: Map<string, ZoneRect> = new Map();
   private characterContainer: Container;
   private rootContainer: Container;
+  private projection: Projection;
 
   private static readonly WALKABLE_SPAWN_PREFIXES = ['desk-', 'pc-', 'warroom-', 'entrance'];
 
-  constructor(private mapData: TiledMap, private tilesetTextures: Texture[]) {
+  constructor(
+    private mapData: TiledMap,
+    private tilesetTextures: Texture[],
+    projection?: Projection,
+  ) {
     this.width = mapData.width;
     this.height = mapData.height;
     this.tileSize = mapData.tilewidth;
+    // Default keeps the exact prior top-down geometry — passing an iso
+    // projection is what flips the office to isometric (see projection.ts).
+    this.projection = projection ?? orthoProjection(this.tileSize);
     this.rootContainer = new Container();
     this.characterContainer = new Container();
     this.characterContainer.sortableChildren = true;
@@ -88,16 +103,23 @@ export class TiledMapRenderer {
     return this.walkabilityGrid[ty][tx];
   }
 
+  getProjection(): Projection { return this.projection; }
+
   tileToPixel(tx: number, ty: number): Point {
-    return { x: tx * this.tileSize, y: ty * this.tileSize };
+    return projTileToPixel(this.projection, tx, ty);
   }
 
   /** A character's foot-anchor pixel for a tile (bottom-center of the tile).
    *  Single source for the `+tileSize/2, +tileSize` offset that spawn, sit and
    *  walk used to each recompute by hand — so a projection change lands here. */
   tileToFoot(tx: number, ty: number): Point {
-    const p = this.tileToPixel(tx, ty);
-    return { x: p.x + this.tileSize / 2, y: p.y + this.tileSize };
+    return projTileToFoot(this.projection, tx, ty);
+  }
+
+  /** Baseline depth-sort key for anything standing on a tile (tiles and
+   *  characters share it, so one sortable container orders them correctly). */
+  depthKey(tx: number, ty: number): number {
+    return projDepthKey(this.projection, tx, ty);
   }
 
   pixelToTile(px: number, py: number): Point {
