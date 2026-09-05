@@ -92,6 +92,14 @@ export class TiledMapRenderer {
     return { x: tx * this.tileSize, y: ty * this.tileSize };
   }
 
+  /** A character's foot-anchor pixel for a tile (bottom-center of the tile).
+   *  Single source for the `+tileSize/2, +tileSize` offset that spawn, sit and
+   *  walk used to each recompute by hand — so a projection change lands here. */
+  tileToFoot(tx: number, ty: number): Point {
+    const p = this.tileToPixel(tx, ty);
+    return { x: p.x + this.tileSize / 2, y: p.y + this.tileSize };
+  }
+
   pixelToTile(px: number, py: number): Point {
     return { x: Math.floor(px / this.tileSize), y: Math.floor(py / this.tileSize) };
   }

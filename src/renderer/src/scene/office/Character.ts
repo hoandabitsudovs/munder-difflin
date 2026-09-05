@@ -137,9 +137,9 @@ export class Character {
 
     // Appear at the spawn tile (the door) and walk in from there.
     const start = options.spawnTile ?? this.deskTile;
-    const pos = this.mapRenderer.tileToPixel(start.x, start.y);
-    this.px = pos.x + this.mapRenderer.tileSize / 2;
-    this.py = pos.y + this.mapRenderer.tileSize;
+    const foot = this.mapRenderer.tileToFoot(start.x, start.y);
+    this.px = foot.x;
+    this.py = foot.y;
     this.sprite.setPosition(this.px, this.py);
 
     this.thoughtBubble = new ThoughtBubble();
@@ -334,9 +334,9 @@ export class Character {
 
   repositionTo(tx: number, ty: number): void {
     this.deskTile = { x: tx, y: ty };
-    const pos = this.mapRenderer.tileToPixel(tx, ty);
-    this.px = pos.x + this.mapRenderer.tileSize / 2;
-    this.py = pos.y + this.mapRenderer.tileSize;
+    const foot = this.mapRenderer.tileToFoot(tx, ty);
+    this.px = foot.x;
+    this.py = foot.y;
     this.sprite.setPosition(this.px, this.py);
   }
 
@@ -791,9 +791,9 @@ export class Character {
     }
 
     const target = this.path[0];
-    const ts = this.mapRenderer.tileSize;
-    const targetPx = target.x * ts + ts / 2;
-    const targetPy = target.y * ts + ts;
+    const foot = this.mapRenderer.tileToFoot(target.x, target.y);
+    const targetPx = foot.x;
+    const targetPy = foot.y;
     const dx = targetPx - this.px;
     const dy = targetPy - this.py;
     const dist = Math.sqrt(dx * dx + dy * dy);
