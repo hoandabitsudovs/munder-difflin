@@ -1582,7 +1582,7 @@ export function OfficeFloor() {
             break;
           case 'success':
             c.setStatusGlyph('success');
-            if (agent.isGod) { c.hideThought(); c.sitAtDesk(true); break; }
+            if (agent.isGod || agent.department) { c.hideThought(); c.sitAtDesk(true); break; }
             c.startWandering();
             if (finishedWork) {
               c.cheer();
@@ -1599,8 +1599,12 @@ export function OfficeFloor() {
           case 'idle':
           default:
             c.setStatusGlyph('none');
-            // The god runs the floor from its desk; everyone else wanders when idle.
+            // The god runs the floor from its desk; Hermes department agents
+            // stay at their own desk (that's the whole point of seating them
+            // by zone — wandering the shared floor would erase it); everyone
+            // else wanders when idle.
             if (agent.isGod) { c.sitAtDesk(true); c.showThought(liveActivity(agent, t('office.activity.runningFloor'))); }
+            else if (agent.department) { c.sitAtDesk(true); c.showThought(liveActivity(agent, t('office.activity.idle'))); }
             else if (finishedWork) {
               // Task done → a quick cheer on the spot, then back to roaming.
               c.startWandering();
