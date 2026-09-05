@@ -175,9 +175,10 @@ export function OfficeFloor() {
   // whole scene is torn down and rebuilt through the existing mount path rather
   // than through a second, parallel recovery routine.
   const [glGeneration, setGlGeneration] = useState(0);
-  // ISO retrofit (stage 1): flip the office to an isometric projection + floor.
-  // Off by default — the top-down office is still the production view.
-  const [isoMode, setIsoMode] = useState(false);
+  // ISO retrofit: the office renders isometric. This is now the only view — the
+  // top-down munder-difflin tileset office is no longer shown. Kept as a const so
+  // the projection switch stays in one obvious place.
+  const isoMode = true;
   // Retries spent on an init that could not GET a context (see glRecovery.ts).
   // A ref, not state: the budget has to survive the rebuilds it schedules, which
   // re-run the effect below and would reset anything scoped to it.
@@ -341,7 +342,7 @@ export function OfficeFloor() {
         }
       }
       calG.rect(8, 11, 2, 2).fill(0xc94f4f);                  // today, circled red
-      charLayer.addChild(calG);
+      if (!isoMode) charLayer.addChild(calG); // ortho-anchored decoration — hidden in iso
 
       // Build the ordered seat list once: PC desks + named desks first, then
       // conference-room chairs as overflow. Each agent claims one and stays there;
@@ -393,7 +394,7 @@ export function OfficeFloor() {
         signG.position.set(z.x * calTs, z.y * calTs - 10);
         signG.zIndex = z.y * calTs;
         signG.roundRect(0, 0, dept.length * 6 + 8, 10, 2).fill({ color: 0x2a2432, alpha: 0.72 });
-        charLayer.addChild(signG);
+        if (!isoMode) charLayer.addChild(signG); // ortho-anchored zone label — hidden in iso
         const signText = new Text({
           text: dept,
           style: { fontSize: 7, fontWeight: 'bold', fill: 0xf4f1ea, fontFamily: 'monospace', align: 'left' }
@@ -510,7 +511,7 @@ export function OfficeFloor() {
       trayG.eventMode = 'none';
       trayG.position.set(TRAY_TILE.x * ts0, TRAY_TILE.y * ts0);
       trayG.zIndex = (TRAY_TILE.y + 1) * ts0;
-      charLayer.addChild(trayG);
+      if (!isoMode) charLayer.addChild(trayG); // ortho cafeteria prop — hidden in iso
       const drawTray = (): void => {
         trayG.clear();
         const slots: Array<[number, number]> = [[2, 10], [9, 10], [2, 15], [9, 15]];
@@ -524,7 +525,7 @@ export function OfficeFloor() {
       sinkG.eventMode = 'none';
       sinkG.position.set(SINK_TILE.x * ts0, SINK_TILE.y * ts0);
       sinkG.zIndex = (SINK_TILE.y + 1) * ts0;
-      charLayer.addChild(sinkG);
+      if (!isoMode) charLayer.addChild(sinkG); // ortho cafeteria prop — hidden in iso
       let sinkBusy = 0; // seconds of wash animation left
       const drawSink = (t: number): void => {
         sinkG.clear();
@@ -549,7 +550,7 @@ export function OfficeFloor() {
       machineG.eventMode = 'none';
       machineG.position.set(26 * ts0, 17 * ts0);
       machineG.zIndex = 19 * ts0;
-      charLayer.addChild(machineG);
+      if (!isoMode) charLayer.addChild(machineG); // ortho cafeteria prop — hidden in iso
       let machineBusy = 0;
       const drawMachine = (t: number): void => {
         machineG.clear();
@@ -1829,32 +1830,16 @@ export function OfficeFloor() {
   }, [officeTheme, glGeneration, i18n.language, isoMode]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <div
-        ref={hostRef}
-        style={{
-          width: '100%', height: '100%',
-          boxShadow: 'var(--cth-panel-border)',
-          overflow: 'hidden',
-          imageRendering: 'pixelated',
-          background: hex(colors.ink[900]),
-        }}
-      />
-      {import.meta.env.DEV && (
-        <button
-          onClick={() => setIsoMode((m) => !m)}
-          title="Alternar oficina isométrica (dev, en construcción)"
-          style={{
-            position: 'absolute', right: 12, top: 12, zIndex: 50,
-            font: '11px ui-monospace, monospace', padding: '5px 9px',
-            background: isoMode ? '#4f6f9f' : '#2b2436', color: '#e8e2f0',
-            border: '1px solid #4f6f9f', borderRadius: 8, cursor: 'pointer',
-          }}
-        >
-          {isoMode ? '◆ iso ON' : '◇ iso OFF'}
-        </button>
-      )}
-    </div>
+    <div
+      ref={hostRef}
+      style={{
+        width: '100%', height: '100%',
+        boxShadow: 'var(--cth-panel-border)',
+        overflow: 'hidden',
+        imageRendering: 'pixelated',
+        background: hex(colors.ink[900]),
+      }}
+    />
   );
 }
 
