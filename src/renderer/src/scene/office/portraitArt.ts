@@ -490,7 +490,60 @@ function drawHeavyFace(buf: Buf, skin: string): void {
   set(buf, 7, 17, s.sh); set(buf, 10, 17, s.sh); // crease shadow between chin + roll
 }
 
+/**
+ * Builds a Recipe from the simple {gender, skin, hair, clothing} shape a
+ * character-creation UI would expose, instead of hand-tuning every field like
+ * the Office-cast recipes below. `gender` only picks sensible defaults for
+ * brow/mouth/lashes/blush — every other field is free (any of the 4 skins, 9
+ * hairstyles, 6 clothing styles, and arbitrary hair/clothing colors).
+ */
+export function buildParamRecipe(p: {
+  gender: 'male' | 'female';
+  skin: string;
+  hairColor: RGB; hair: HairStyle; hairargs?: HairArgs;
+  cloth: Cloth; c1: RGB; c2?: RGB; tie?: RGB; pants?: RGB;
+  facial?: Facial; glasses?: boolean;
+}): Recipe {
+  const female = p.gender === 'female';
+  return {
+    skin: p.skin, hairc: p.hairColor, hair: p.hair, hairargs: p.hairargs,
+    cloth: p.cloth, c1: p.c1, c2: p.c2, tie: p.tie, pants: p.pants,
+    brow: female ? 'soft' : 'flat', mouth: 'smile', blush: female, lashes: female,
+    facial: p.facial, glasses: p.glasses,
+  };
+}
+
+type ImajuCharacterName = Exclude<OfficeCharacterName,
+  'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela' | 'oscar' | 'stanley'
+  | 'phyllis' | 'andy' | 'kelly' | 'ryan' | 'toby' | 'creed' | 'meredith'>;
+
+/** The IMAJU cast — 20 characters spanning all 4 skin tones, 9 hairstyles, and
+ *  6 clothing styles, built via buildParamRecipe instead of hand-tuned. */
+const IMAJU_RECIPES: Record<ImajuCharacterName, Recipe> = {
+  sofia: buildParamRecipe({ gender: 'female', skin: 'light', hairColor: [140, 70, 50], hair: 'styleFrame', hairargs: { length: 19, vol: 2 }, cloth: 'blouse', c1: [60, 150, 150] }),
+  mateo: buildParamRecipe({ gender: 'male', skin: 'tan', hairColor: [30, 24, 20], hair: 'styleShort', hairargs: { part: 'L' }, cloth: 'dressshirt', c1: [50, 70, 110], tie: [30, 45, 80] }),
+  valentina: buildParamRecipe({ gender: 'female', skin: 'brown', hairColor: [20, 16, 14], hair: 'styleCurly', cloth: 'cardigan', c1: [120, 40, 55], c2: [230, 225, 215] }),
+  diego: buildParamRecipe({ gender: 'male', skin: 'dark', hairColor: [35, 28, 22], hair: 'styleSpiky', cloth: 'polo', c1: [50, 120, 70] }),
+  camila: buildParamRecipe({ gender: 'female', skin: 'tan', hairColor: [200, 160, 60], hair: 'styleBun', cloth: 'blouse', c1: [220, 110, 90] }),
+  lucas: buildParamRecipe({ gender: 'male', skin: 'light', hairColor: [180, 140, 80], hair: 'styleMessy', hairargs: { length: 9 }, cloth: 'sweater', c1: [190, 150, 40] }),
+  elena: buildParamRecipe({ gender: 'female', skin: 'dark', hairColor: [20, 16, 14], hair: 'styleFrame', hairargs: { length: 20, vol: 1 }, cloth: 'blouse', c1: [40, 150, 160] }),
+  andres: buildParamRecipe({ gender: 'male', skin: 'brown', hairColor: [150, 150, 150], hair: 'styleRecede', cloth: 'dressshirt', c1: [110, 110, 120], tie: [70, 70, 85], glasses: true }),
+  mariana: buildParamRecipe({ gender: 'female', skin: 'light', hairColor: [110, 50, 40], hair: 'styleCurly', cloth: 'cardigan', c1: [170, 140, 190], c2: [235, 233, 226] }),
+  javier: buildParamRecipe({ gender: 'male', skin: 'tan', hairColor: [35, 28, 22], hair: 'styleShort', hairargs: { part: 'R' }, cloth: 'suit', c1: [50, 50, 58], tie: [120, 40, 40], glasses: true }),
+  isabella: buildParamRecipe({ gender: 'female', skin: 'brown', hairColor: [15, 12, 12], hair: 'styleBun', cloth: 'blouse', c1: [200, 160, 50] }),
+  carlos: buildParamRecipe({ gender: 'male', skin: 'dark', hairColor: [25, 20, 18], hair: 'styleBald', cloth: 'polo', c1: [40, 60, 110] }),
+  gabriela: buildParamRecipe({ gender: 'female', skin: 'tan', hairColor: [110, 65, 40], hair: 'styleFloppy', cloth: 'sweater', c1: [220, 130, 150] }),
+  rafael: buildParamRecipe({ gender: 'male', skin: 'light', hairColor: [30, 24, 20], hair: 'styleFrame', hairargs: { length: 14, vol: 1 }, cloth: 'suit', c1: [45, 55, 80], tie: [150, 40, 40] }),
+  daniela: buildParamRecipe({ gender: 'female', skin: 'dark', hairColor: [20, 16, 14], hair: 'styleMessy', hairargs: { length: 10 }, cloth: 'blouse', c1: [60, 160, 170] }),
+  tomas: buildParamRecipe({ gender: 'male', skin: 'brown', hairColor: [195, 155, 70], hair: 'styleSpiky', cloth: 'polo', c1: [180, 50, 50] }),
+  paula: buildParamRecipe({ gender: 'female', skin: 'light', hairColor: [210, 180, 90], hair: 'styleShort', hairargs: { part: 'L' }, cloth: 'cardigan', c1: [120, 190, 160] }),
+  nicolas: buildParamRecipe({ gender: 'male', skin: 'tan', hairColor: [20, 16, 14], hair: 'styleCurly', cloth: 'sweater', c1: [40, 90, 55], facial: 'stubble' }),
+  renata: buildParamRecipe({ gender: 'female', skin: 'brown', hairColor: [120, 116, 122], hair: 'styleBun', cloth: 'blouse', c1: [110, 60, 100] }),
+  emilio: buildParamRecipe({ gender: 'male', skin: 'dark', hairColor: [20, 16, 14], hair: 'styleRecede', cloth: 'dressshirt', c1: [90, 100, 55], facial: 'goatee' }),
+};
+
 const RECIPES: Record<OfficeCharacterName, Recipe> = {
+  ...IMAJU_RECIPES,
   michael:  { skin: 'light', hairc: [58, 42, 28],   hair: 'styleShort',  hairargs: { part: 'L' }, cloth: 'suit', c1: [58, 63, 74], tie: [170, 58, 58], brow: 'flat', mouth: 'smile' },
   jim:      { skin: 'light', hairc: [92, 60, 34],   hair: 'styleFloppy', cloth: 'dressshirt', c1: [172, 196, 224], tie: [120, 130, 150], brow: 'flat', mouth: 'smile' },
   pam:      { skin: 'light', hairc: [120, 76, 42],  hair: 'styleFrame',  hairargs: { length: 18, vol: 2 }, cloth: 'cardigan', c1: [236, 174, 192], c2: [244, 242, 238], brow: 'soft', mouth: 'smile', blush: true, lashes: true },

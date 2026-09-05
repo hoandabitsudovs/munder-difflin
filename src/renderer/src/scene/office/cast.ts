@@ -12,7 +12,13 @@ import { paintPortrait, sceneFrameBufs, SCENE_W, SCENE_H } from './portraitArt';
 export type OfficeCharacterName =
   | 'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela'
   | 'oscar' | 'stanley' | 'phyllis' | 'andy' | 'kelly' | 'ryan'
-  | 'toby' | 'creed' | 'meredith';
+  | 'toby' | 'creed' | 'meredith'
+  // IMAJU cast — generated via the parametrized recipe builder in portraitArt.ts
+  // (buildParamRecipe), not hand-tuned per-character like the names above. Same
+  // procedural engine, no LimeZu, free to expand.
+  | 'sofia' | 'mateo' | 'valentina' | 'diego' | 'camila' | 'lucas' | 'elena'
+  | 'andres' | 'mariana' | 'javier' | 'isabella' | 'carlos' | 'gabriela'
+  | 'rafael' | 'daniela' | 'tomas' | 'paula' | 'nicolas' | 'renata' | 'emilio';
 
 export interface CastMember {
   name: OfficeCharacterName;
@@ -40,6 +46,27 @@ export const OFFICE_CAST: CastMember[] = [
   { name: 'toby',     displayName: 'Toby',     shirt: '#9a8c5a', blurb: 'Human resources' },
   { name: 'creed',    displayName: 'Creed',    shirt: '#6b7a4b', blurb: 'Quality assurance' },
   { name: 'meredith', displayName: 'Meredith', shirt: '#b5544a', blurb: 'Supplier relations' },
+  // ─── IMAJU cast (procedural, parametrized — see portraitArt.ts) ───────────
+  { name: 'sofia',     displayName: 'Sofía',     shirt: '#3C9696', blurb: 'Estrategia y crecimiento' },
+  { name: 'mateo',     displayName: 'Mateo',     shirt: '#32466E', blurb: 'Arquitectura de software' },
+  { name: 'valentina', displayName: 'Valentina', shirt: '#782837', blurb: 'Dirección de arte' },
+  { name: 'diego',     displayName: 'Diego',     shirt: '#327846', blurb: 'Implementación' },
+  { name: 'camila',    displayName: 'Camila',    shirt: '#DC6E5A', blurb: 'SEO técnico' },
+  { name: 'lucas',     displayName: 'Lucas',     shirt: '#BE9628', blurb: 'Redacción' },
+  { name: 'elena',     displayName: 'Elena',     shirt: '#2896A0', blurb: 'Auditoría de seguridad' },
+  { name: 'andres',    displayName: 'Andrés',    shirt: '#6E6E78', blurb: 'Revisión de desarrollo' },
+  { name: 'mariana',   displayName: 'Mariana',   shirt: '#AA8CBE', blurb: 'Edición y tono' },
+  { name: 'javier',    displayName: 'Javier',    shirt: '#32323A', blurb: 'Coordinación central' },
+  { name: 'isabella',  displayName: 'Isabella',  shirt: '#C8A032', blurb: 'Producción visual' },
+  { name: 'carlos',    displayName: 'Carlos',    shirt: '#283C6E', blurb: 'Análisis financiero' },
+  { name: 'gabriela',  displayName: 'Gabriela',  shirt: '#DC8296', blurb: 'Revisión creativa' },
+  { name: 'rafael',    displayName: 'Rafael',    shirt: '#2D3750', blurb: 'Revisión de marketing' },
+  { name: 'daniela',   displayName: 'Daniela',   shirt: '#3CA0AA', blurb: 'Contraloría' },
+  { name: 'tomas',     displayName: 'Tomás',     shirt: '#B43232', blurb: 'Revisión de redacción' },
+  { name: 'paula',     displayName: 'Paula',     shirt: '#78BEA0', blurb: 'Atención al detalle' },
+  { name: 'nicolas',   displayName: 'Nicolás',   shirt: '#285A37', blurb: 'Desarrollo backend' },
+  { name: 'renata',    displayName: 'Renata',    shirt: '#6E3C64', blurb: 'Consultoría senior' },
+  { name: 'emilio',    displayName: 'Emilio',    shirt: '#5A6437', blurb: 'Seguridad de sistemas' },
 ];
 
 export const CAST_BY_NAME: Record<OfficeCharacterName, CastMember> =
