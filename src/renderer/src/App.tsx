@@ -4,6 +4,7 @@ import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
 import { OfficeFloor } from '@/scene/office/OfficeFloor';
+import { IsoPreviewOverlay } from '@/scene/iso-preview/IsoPreviewOverlay';
 import { useHive } from '@/hooks/useHive';
 import { useHermesPoll } from '@/hooks/useHermesPoll';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
@@ -282,6 +283,9 @@ export function App() {
       {/* rt-12: global fixed-overlay toast for voice-Michael completions ("Oscar
           finished X"). Self-positions bottom-right; renders null until one arrives. */}
       <CompletionToast />
+      {/* dev-only: floating button + overlay showcasing the isometric pixel-art
+          set (35 chars + 7 rooms). Isolated from the production office render. */}
+      <IsoPreviewOverlay />
       {/* v0.3.4: background-update toast ("restart to update"); renders null until
           main's updater pushes a status. */}
       <UpdateToast />
