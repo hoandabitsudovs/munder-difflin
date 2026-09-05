@@ -25,7 +25,7 @@ import {
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
-import { pollHermesRunningProfiles } from './hermesKanban';
+import { pollHermesRunningProfiles, listHermesTasks } from './hermesKanban';
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
@@ -3572,6 +3572,7 @@ ipcMain.handle('memory:reflectNow', (_evt, id: unknown) =>
 
 // ─── IPC: Hermes kanban bridge (read-only; Hermes' own gateway is the writer) ─
 ipcMain.handle('hermes:pollRunningProfiles', () => pollHermesRunningProfiles());
+ipcMain.handle('hermes:listTasks', () => listHermesTasks());
 
 // ─── IPC: enterprise Knowledge Graph (multimodal context for agents) ─────────
 ipcMain.handle('kg:status', () => knowledge.status());

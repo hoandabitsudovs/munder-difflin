@@ -390,6 +390,7 @@
       "terminal": "terminal",
       "floor": "monitor",
       "tasks": "tasks",
+      "hermes": "hermes",
       "human": "ask me",
       "triggers": "triggers",
       "history": "history",

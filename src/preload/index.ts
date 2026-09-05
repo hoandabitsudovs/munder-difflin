@@ -12,6 +12,7 @@ import type { HeroPayload } from '../shared/heroPayload';
 export type { HeroPayload } from '../shared/heroPayload';
 import type { HookEvent } from '../shared/hookEvents';
 export type { HookEvent } from '../shared/hookEvents';
+import type { HermesTaskRow } from '../main/hermesKanban';
 import type { LocalSkill, CatalogSkill } from '../main/skills';
 export type { LocalSkill, CatalogSkill } from '../main/skills';
 import type {
@@ -818,6 +819,7 @@ const api = {
 
   // ─── Hermes kanban bridge (read-only poll — which profiles have a running task) ─
   hermesPollRunningProfiles: (): Promise<string[]> => ipcRenderer.invoke('hermes:pollRunningProfiles'),
+  hermesListTasks: (): Promise<HermesTaskRow[]> => ipcRenderer.invoke('hermes:listTasks'),
 
   // ─── Enterprise Knowledge Graph (multimodal context for agents) ───────────
   kgStatus: (): Promise<KnowledgeStatus> => ipcRenderer.invoke('kg:status'),

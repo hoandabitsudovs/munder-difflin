@@ -17,6 +17,41 @@ function kanbanDbPath(): string {
   return join(homedir(), '.hermes', 'kanban.db');
 }
 
+export interface HermesTaskRow {
+  id: string;
+  title: string;
+  assignee: string | null;
+  status: string;
+  priority: number;
+  createdAt: number;
+}
+
+/** Recent, non-archived tasks from Hermes' real kanban board — for display
+ *  only, same read-only discipline as pollHermesRunningProfiles(). */
+export function listHermesTasks(limit = 100): HermesTaskRow[] {
+  const path = kanbanDbPath();
+  if (!existsSync(path)) return [];
+  let db: Database.Database | undefined;
+  try {
+    db = new Database(path, { readonly: true, fileMustExist: true });
+    const rows = db
+      .prepare(
+        `SELECT id, title, assignee, status, priority, created_at
+         FROM tasks WHERE status != 'archived'
+         ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(limit) as Array<{ id: string; title: string; assignee: string | null; status: string; priority: number; created_at: number }>;
+    return rows.map((r) => ({
+      id: r.id, title: r.title, assignee: r.assignee, status: r.status,
+      priority: r.priority, createdAt: r.created_at,
+    }));
+  } catch {
+    return [];
+  } finally {
+    db?.close();
+  }
+}
+
 /** Hermes profile names (the `assignee` column) with at least one `running` task right now. */
 export function pollHermesRunningProfiles(): string[] {
   const path = kanbanDbPath();
