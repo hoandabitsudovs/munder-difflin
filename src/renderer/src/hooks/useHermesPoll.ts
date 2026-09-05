@@ -41,6 +41,7 @@ export function useHermesPoll(enabled: boolean) {
             accent: DEPARTMENT_ACCENT[entry.department],
             description: entry.role,
             project: entry.department,
+            department: entry.department,
             tmuxTarget: '',
             cwd: '',
             status: isWorking ? 'working' : 'idle',

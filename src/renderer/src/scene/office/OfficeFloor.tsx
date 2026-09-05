@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Application, Container, Graphics, Ticker, Texture } from 'pixi.js';
+import { Application, Container, Graphics, Ticker, Texture, Text } from 'pixi.js';
 // PixiJS uses new Function() internally, blocked by Electron CSP — this patches it.
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
@@ -333,21 +333,25 @@ export function OfficeFloor() {
       // conference-room chairs as overflow. Each agent claims one and stays there;
       // they never wander off it (except when blocked, or on a coffee break).
       const seatTiles: Tile[] = [];
+      // Parallel to seatTiles: which department zone (if any) each seat index
+      // belongs to. null = a named desk / boardroom overflow, not department-tagged.
+      const seatZones: (string | null)[] = [];
       const seatSeen = new Set<string>();
-      const addSeat = (t?: Tile) => {
+      const addSeat = (t?: Tile, zone: string | null = null) => {
         if (!t) return;
         const k = `${t.x},${t.y}`;
         if (seatSeen.has(k)) return;
         seatSeen.add(k);
         seatTiles.push({ x: t.x, y: t.y });
+        seatZones.push(zone);
       };
       for (const name of theme.primarySeatNames) addSeat(mapRenderer.getSpawnPoint(name));
-      const addZoneSeats = (zone: string) => {
+      const addZoneSeats = (zone: string, tagDepartment = false) => {
         const z = mapRenderer.getZone(zone);
         if (!z) return;
         for (let y = z.y; y < z.y + z.height; y++) {
           for (let x = z.x; x < z.x + z.width; x++) {
-            if (mapRenderer.isWalkable(x, y)) addSeat({ x, y });
+            if (mapRenderer.isWalkable(x, y)) addSeat({ x, y }, tagDepartment ? zone : null);
           }
         }
       };
@@ -355,6 +359,34 @@ export function OfficeFloor() {
       // The bottom-right open area is the cafeteria (break room) — see the
       // coffee-break director below. It is deliberately NOT added as overflow
       // desk seating, so the café tables stay free for breaks.
+
+      // Department zones (Hermes-driven synthetic agents only — see
+      // useHermesPoll.ts / hermesRoster.ts). Two open corridor rows in
+      // office.tmj (y14, y19), carved into 7 named strips — no walls, just
+      // seat-claim grouping + a floor label (added below).
+      for (const dept of ['Desarrollo', 'Marketing', 'Creativo', 'Redacción', 'Finanzas', 'Ciberseguridad', 'Dirección']) {
+        addZoneSeats(dept, true);
+      }
+
+      // Floor signs for the 7 department zones — a small sunk plank at the
+      // top-left tile of each zone (same "signpost" idea as DESIGN.md's
+      // RoomLabel, drawn with Graphics + Text like the wall calendar above
+      // rather than new tile art, since these zones have no walls).
+      for (const dept of ['Desarrollo', 'Marketing', 'Creativo', 'Redacción', 'Finanzas', 'Ciberseguridad', 'Dirección']) {
+        const z = mapRenderer.getZone(dept);
+        if (!z) continue;
+        const signG = new Graphics();
+        signG.position.set(z.x * calTs, z.y * calTs - 10);
+        signG.zIndex = z.y * calTs;
+        signG.roundRect(0, 0, dept.length * 6 + 8, 10, 2).fill({ color: 0x2a2432, alpha: 0.72 });
+        charLayer.addChild(signG);
+        const signText = new Text({
+          text: dept,
+          style: { fontSize: 7, fontWeight: 'bold', fill: 0xf4f1ea, fontFamily: 'monospace', align: 'left' }
+        });
+        signText.position.set(4, 1);
+        signG.addChild(signText);
+      }
 
       // Waiting spots near the entrance — where a blocked agent walks to signal
       // it needs the user. Collected as walkable tiles in rings around the door.
@@ -380,6 +412,15 @@ export function OfficeFloor() {
       const GOD_SEAT = 0;
       const claimSeat = (agent: Agent): number | null => {
         if (agent.isGod) { seatClaims.add(GOD_SEAT); return GOD_SEAT; }
+        // Prefer a seat tagged with the agent's own department (Hermes-driven
+        // synthetic agents — see hermesRoster.ts); everyone else has no
+        // `department` and falls straight through to "first free seat",
+        // unchanged from before.
+        if (agent.department) {
+          for (let i = 1; i < seatTiles.length; i++) {
+            if (!seatClaims.has(i) && seatZones[i] === agent.department) { seatClaims.add(i); return i; }
+          }
+        }
         for (let i = 1; i < seatTiles.length; i++) {
           if (!seatClaims.has(i)) { seatClaims.add(i); return i; }
         }

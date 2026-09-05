@@ -87,6 +87,11 @@ export interface Agent {
   /** Michael's prep assistant — send-only; enriches prompts and forwards them to
    *  the god. Excluded from broadcast fan-out and from the restorable-dead sweep. */
   isAssistant?: boolean;
+  /** Department zone name (office.tmj's `zones` layer) this agent prefers to
+   *  seat in — set only by Hermes-driven synthetic agents (useHermesPoll.ts).
+   *  Unset for every other agent, which keeps today's plain "first free seat"
+   *  behavior in OfficeFloor.tsx's claimSeat. */
+  department?: string;
   /** The human has this agent 1:1 and Michael has been told to leave it alone.
    *  Mirrors `RegistryAgent.onHold`; main owns the record, this is the copy the
    *  title bar renders from. */
