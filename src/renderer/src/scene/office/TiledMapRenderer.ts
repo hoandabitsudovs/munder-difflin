@@ -79,6 +79,7 @@ export class TiledMapRenderer {
     private mapData: TiledMap,
     private tilesetTextures: Texture[],
     projection?: Projection,
+    private drawOwnIsoFloor = true,
   ) {
     this.width = mapData.width;
     this.height = mapData.height;
@@ -103,6 +104,12 @@ export class TiledMapRenderer {
   isWalkable(tx: number, ty: number): boolean {
     if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return false;
     return this.walkabilityGrid[ty][tx];
+  }
+
+  /** Replace the walkability grid with a predicate (used by the iso rooms scene,
+   *  whose room/wall layout differs from the top-down collision layer). */
+  setWalkable(fn: (tx: number, ty: number) => boolean): void {
+    for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) this.walkabilityGrid[y][x] = fn(x, y);
   }
 
   getProjection(): Projection { return this.projection; }
@@ -223,7 +230,7 @@ export class TiledMapRenderer {
     // top-down tileset layers. Characters (positioned via tileToFoot, which is
     // now iso) render on top. Furniture/decorations stay a later stage.
     if (this.projection.kind === 'iso') {
-      this.buildIsoFloor();
+      if (this.drawOwnIsoFloor) this.buildIsoFloor();
       this.rootContainer.addChild(this.characterContainer);
       return;
     }

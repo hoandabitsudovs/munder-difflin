@@ -5,7 +5,7 @@ import { Application, Container, Graphics, Ticker, Texture, Text } from 'pixi.js
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
 import { TiledMapRenderer } from './TiledMapRenderer';
-import { isoProjection } from './projection';
+import { isoRoomsProjection, buildIsoRooms, isoWalkable } from './isoRoomsScene';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
 import { DeskScreen } from './DeskScreen';
@@ -291,21 +291,20 @@ export function OfficeFloor() {
       app.stage.addChild(world);
 
       const themeMap = resolveThemeMap(theme);
-      const projection = isoMode
-        ? isoProjection(themeMap.tilewidth, themeMap.width, themeMap.height)
-        : undefined;
-      const mapRenderer = new TiledMapRenderer(themeMap, tilesetTextures, projection);
+      // ISO: independent furnished department rooms (isoRoomsScene). The map
+      // renderer skips its own iso floor; the rooms scene draws floor/walls/
+      // furniture and the map renderer's walkability is replaced with the room
+      // layout so agents seat inside their room.
+      const projection = isoMode ? isoRoomsProjection() : undefined;
+      const mapRenderer = new TiledMapRenderer(themeMap, tilesetTextures, projection, !isoMode);
+      const isoRooms = isoMode ? buildIsoRooms() : null;
+      if (isoRooms) { mapRenderer.setWalkable(isoWalkable); world.addChild(isoRooms.container); }
       world.addChild(mapRenderer.getContainer());
       const charLayer = mapRenderer.getCharacterContainer();
-      const tileCount = mapRenderer.getContainer().children.reduce(
-        (n, c) => n + ((c as Container).children?.length ?? 0), 0);
-      console.log(`[OfficeFloor] map ${mapRenderer.width}x${mapRenderer.height}, ${tileCount} tile sprites rendered`);
 
       const camera = new Camera(world);
-      // Iso maps span (W+H)*tileW/2 wide and (W+H)*tileH/2 tall on screen.
-      if (isoMode) {
-        const tw = mapRenderer.tileSize * 2, th = mapRenderer.tileSize;
-        camera.setMapSize((mapRenderer.width + mapRenderer.height) * (tw / 2), (mapRenderer.width + mapRenderer.height) * (th / 2));
+      if (isoRooms) {
+        camera.setMapSize(isoRooms.worldW, isoRooms.worldH);
       } else {
         camera.setMapSize(mapRenderer.width * mapRenderer.tileSize, mapRenderer.height * mapRenderer.tileSize);
       }
@@ -406,26 +405,14 @@ export function OfficeFloor() {
         signG.addChild(signText);
       }
 
-      // ISO desks: a small isometric desk at each department seat, drawn in
-      // front of the seated agent (occluding their lower body) so they read as
-      // working at a station rather than standing on bare floor.
-      if (isoMode) {
-        const drawIsoDesk = (cx: number, cy: number): Graphics => {
-          const g = new Graphics();
-          const hw = 13, hh = 6, dh = 7;
-          g.poly([cx, cy - dh - hh, cx + hw, cy - dh, cx, cy - dh + hh, cx - hw, cy - dh]).fill(0x9c8358); // top
-          g.poly([cx - hw, cy - dh, cx, cy - dh + hh, cx, cy + hh, cx - hw, cy]).fill(0x6f5b3a);           // left face
-          g.poly([cx, cy - dh + hh, cx + hw, cy - dh, cx + hw, cy, cx, cy + hh]).fill(0x53442c);           // right face
-          g.rect(cx - 2, cy - dh - 12, 4, 7).fill(0x2a2e36);   // monitor
-          g.rect(cx - 1, cy - dh - 6, 2, 2).fill(0x5a6270);    // screen glow
-          return g;
-        };
-        for (let i = 0; i < seatTiles.length; i++) {
-          if (!seatZones[i]) continue; // department seats only for now
-          const f = mapRenderer.tileToFoot(seatTiles[i].x, seatTiles[i].y);
-          const g = drawIsoDesk(f.x, f.y + 3);
-          g.zIndex = f.y + 2; // just in front of a character seated on this tile
-          charLayer.addChild(g);
+      // ISO: replace the office.tmj-derived seats with the room-layout seats from
+      // isoRoomsScene, so each department's agents sit inside their own room (the
+      // furniture, incl. desks, is drawn by the rooms scene).
+      if (isoRooms) {
+        seatTiles.length = 0; seatZones.length = 0;
+        seatTiles.push(isoRooms.godSeat); seatZones.push(null); // seat 0 = god
+        for (const [dept, seats] of isoRooms.seatsByDept) {
+          for (const s of seats) { seatTiles.push({ x: s.x, y: s.y }); seatZones.push(dept); }
         }
       }
 
@@ -1480,7 +1467,9 @@ export function OfficeFloor() {
           frames,
           seatTile,
           seatDirection: facingForSeat(seatTile),
-          spawnTile: entrance, // walk in from the office door
+          // iso rooms: appear seated (the office.tmj entrance is outside the room
+          // layout, so there's no walk-in path); top-down still walks in.
+          spawnTile: isoRooms ? seatTile : entrance,
           glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
           onClick: (id) => useStore.getState().select(id),
         });
