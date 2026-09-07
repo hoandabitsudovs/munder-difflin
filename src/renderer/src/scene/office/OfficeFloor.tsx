@@ -366,6 +366,9 @@ export function OfficeFloor() {
         if (!z) return;
         for (let y = z.y; y < z.y + z.height; y++) {
           for (let x = z.x; x < z.x + z.width; x++) {
+            // In iso, adjacent tiles sit only ~half a sprite apart, so seat every
+            // other tile (checker) to keep seated agents from overlapping.
+            if (isoMode && tagDepartment && (x + y) % 2 !== 0) continue;
             if (mapRenderer.isWalkable(x, y)) addSeat({ x, y }, tagDepartment ? zone : null);
           }
         }
@@ -401,6 +404,29 @@ export function OfficeFloor() {
         });
         signText.position.set(4, 1);
         signG.addChild(signText);
+      }
+
+      // ISO desks: a small isometric desk at each department seat, drawn in
+      // front of the seated agent (occluding their lower body) so they read as
+      // working at a station rather than standing on bare floor.
+      if (isoMode) {
+        const drawIsoDesk = (cx: number, cy: number): Graphics => {
+          const g = new Graphics();
+          const hw = 13, hh = 6, dh = 7;
+          g.poly([cx, cy - dh - hh, cx + hw, cy - dh, cx, cy - dh + hh, cx - hw, cy - dh]).fill(0x9c8358); // top
+          g.poly([cx - hw, cy - dh, cx, cy - dh + hh, cx, cy + hh, cx - hw, cy]).fill(0x6f5b3a);           // left face
+          g.poly([cx, cy - dh + hh, cx + hw, cy - dh, cx + hw, cy, cx, cy + hh]).fill(0x53442c);           // right face
+          g.rect(cx - 2, cy - dh - 12, 4, 7).fill(0x2a2e36);   // monitor
+          g.rect(cx - 1, cy - dh - 6, 2, 2).fill(0x5a6270);    // screen glow
+          return g;
+        };
+        for (let i = 0; i < seatTiles.length; i++) {
+          if (!seatZones[i]) continue; // department seats only for now
+          const f = mapRenderer.tileToFoot(seatTiles[i].x, seatTiles[i].y);
+          const g = drawIsoDesk(f.x, f.y + 3);
+          g.zIndex = f.y + 2; // just in front of a character seated on this tile
+          charLayer.addChild(g);
+        }
       }
 
       // Waiting spots near the entrance — where a blocked agent walks to signal
