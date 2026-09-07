@@ -5,7 +5,7 @@ import { Application, Container, Graphics, Ticker, Texture, Text } from 'pixi.js
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
 import { TiledMapRenderer } from './TiledMapRenderer';
-import { isoRoomsProjection, buildIsoRooms, isoWalkable, isoWaitingSpots } from './isoRoomsScene';
+import { isoRoomsProjection, buildIsoRooms, isoWalkable, isoWaitingSpots, isoSyntheticMap } from './isoRoomsScene';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
 import { DeskScreen } from './DeskScreen';
@@ -298,7 +298,10 @@ export function OfficeFloor() {
       // furniture and the map renderer's walkability is replaced with the room
       // layout so agents seat inside their room.
       const projection = isoMode ? isoRoomsProjection() : undefined;
-      const mapRenderer = new TiledMapRenderer(themeMap, tilesetTextures, projection, !isoMode);
+      // iso uses a synthetic (bigger) grid so variable room sizes aren't capped
+      // by office.tmj's 34x22 bounds.
+      const mapData = isoMode ? (isoSyntheticMap() as unknown as typeof themeMap) : themeMap;
+      const mapRenderer = new TiledMapRenderer(mapData, tilesetTextures, projection, !isoMode);
       const isoRooms = isoMode ? buildIsoRooms() : null;
       if (isoRooms) { mapRenderer.setWalkable(isoWalkable); world.addChild(isoRooms.container); }
       world.addChild(mapRenderer.getContainer());

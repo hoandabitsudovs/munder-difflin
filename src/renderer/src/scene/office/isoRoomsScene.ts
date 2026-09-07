@@ -1,13 +1,13 @@
-// Isometric office: a 3x3 grid of rooms separated by 1-tile CORRIDORS, with a
-// central SALA DE ESPERA (waiting room) ringed by the 7 department rooms + a
-// lounge. Agents wait in the centre until they are active, then walk (through
-// doors + corridors, respecting collision) to their department seat. Walls AND
-// furniture are non-walkable — the layout is the physics.
+// Isometric office: variable-size department rooms sized by how many agents work
+// in each, arranged around a big central SALA DE ESPERA (where every agent waits
+// until it becomes active), joined by wide corridors. Walls are thin — only each
+// room's two BACK walls are drawn (open-box iso look), so rooms read open, not
+// boxed-in. Walls AND furniture are non-walkable: the layout is the collision.
 //
-// Kept within office.tmj's 34x22 grid so the existing walkability/seat/pathfind
-// machinery still addresses valid tiles. ORIGINAL art. Painter's depth via
-// per-piece zIndex; agents render above furniture (per-piece occlusion is a
-// later pass).
+// Rendered into a Pixi container; agents (positioned via the exported Projection)
+// seat inside their room when active and wait in the centre otherwise. Uses its
+// own synthetic grid (see isoSyntheticMap) so room sizes aren't capped by
+// office.tmj. ORIGINAL art. Painter's depth via per-piece zIndex.
 import { Container, Graphics } from 'pixi.js';
 import { accentByName } from '@/design/tokens';
 import { DEPARTMENT_ACCENT, type Department } from '@/data/hermesRoster';
@@ -15,107 +15,129 @@ import { Projection } from './projection';
 
 export interface Tile { x: number; y: number; }
 
-const TILE = 16, TW = 32, TH = 16, WALL_H = 26;
-const BLOCK_W = 9, BLOCK_H = 6;                 // room block incl. its walls
-const BX0 = [0, BLOCK_W + 1, 2 * (BLOCK_W + 1)];        // 0, 10, 20
-const BY0 = [0, BLOCK_H + 1, 2 * (BLOCK_H + 1)];        // 0, 7, 14
-export const ISO_GW = 3 * BLOCK_W + 2 + 1;      // 30 (blocks + 2 corridors, +1 pad col unused)
-export const ISO_GH = 3 * BLOCK_H + 2 + 1;      // 21
-const ORIGIN_X = ISO_GH * (TW / 2), ORIGIN_Y = WALL_H + 4;
+const TILE = 16, TW = 32, TH = 16, WALL_H = 24, CORR = 3;
 
-const GRID: (Department | 'lounge' | 'waiting')[][] = [
-  ['Dirección', 'Desarrollo', 'Creativo'],
-  ['Marketing', 'waiting', 'Finanzas'],
-  ['Redacción', 'Ciberseguridad', 'lounge'],
-];
+type RoomName = Department | 'lounge' | 'waiting';
+interface RoomDef { name: RoomName; n: number; iw: number; ih: number; ix: number; iy: number; }
+
+// agent head-count per department (from data/hermesRoster.ts ROSTER)
+const DEPT_N: Record<Department, number> = {
+  'Dirección': 2, 'Desarrollo': 3, 'Creativo': 3, 'Marketing': 3, 'Finanzas': 2, 'Redacción': 3, 'Ciberseguridad': 1,
+};
+const sizeFor = (n: number): { iw: number; ih: number } => (n >= 3 ? { iw: 8, ih: 5 } : n === 2 ? { iw: 6, ih: 4 } : { iw: 5, ih: 4 });
+
+// ── place rooms: two department rows around a big central waiting room ───────
+const rooms: RoomDef[] = [];
+(function layoutRooms(): void {
+  const top: RoomName[] = ['Dirección', 'Desarrollo', 'Creativo', 'Marketing'];
+  const bottom: RoomName[] = ['Finanzas', 'Redacción', 'Ciberseguridad', 'lounge'];
+  const mk = (name: RoomName): RoomDef => {
+    const n = name === 'lounge' ? 3 : name === 'waiting' ? 0 : DEPT_N[name];
+    const s = name === 'lounge' ? { iw: 8, ih: 5 } : sizeFor(n);
+    return { name, n: name === 'waiting' || name === 'lounge' ? 0 : n, iw: s.iw, ih: s.ih, ix: 0, iy: 0 };
+  };
+  const placeRow = (names: RoomName[], oy: number): RoomDef[] => {
+    let ox = 2; const row: RoomDef[] = [];
+    for (const nm of names) { const r = mk(nm); r.ix = ox + 1; r.iy = oy + 1; row.push(r); ox += r.iw + 2 + CORR; }
+    return row;
+  };
+  const topRow = placeRow(top, 1);
+  const topH = Math.max(...topRow.map((r) => r.ih)) + 2;
+  const waiting: RoomDef = { name: 'waiting', n: 0, iw: 15, ih: 10, ix: 0, iy: 1 + topH + CORR + 1 };
+  const bottomRow = placeRow(bottom, waiting.iy - 1 + waiting.ih + 2 + CORR);
+  // centre the waiting room under the widest row
+  const rowRight = (row: RoomDef[]): number => { const last = row[row.length - 1]; return last.ix + last.iw + 1; };
+  const fullW = Math.max(rowRight(topRow), rowRight(bottomRow));
+  waiting.ix = Math.round((fullW - waiting.iw) / 2) + 1;
+  rooms.push(...topRow, waiting, ...bottomRow);
+})();
+
+const roomRight = Math.max(...rooms.map((r) => r.ix + r.iw));
+const roomBottom = Math.max(...rooms.map((r) => r.iy + r.ih));
+export const ISO_GW = roomRight + 2;
+export const ISO_GH = roomBottom + 2;
+const ORIGIN_X = ISO_GH * (TW / 2), ORIGIN_Y = WALL_H + 6;
 
 const project = (tx: number, ty: number): { x: number; y: number } => ({ x: ORIGIN_X + (tx - ty) * (TW / 2), y: ORIGIN_Y + (tx + ty) * (TH / 2) });
 
-// which block a tile is in (or -1 if it's a corridor / outside)
-const CORR_X = new Set([BLOCK_W, 2 * BLOCK_W + 1]);      // x = 9, 19
-const CORR_Y = new Set([BLOCK_H, 2 * BLOCK_H + 1]);      // y = 6, 13
-function blockOf(x: number, y: number): { cc: number; rr: number } | null {
-  if (CORR_X.has(x) || CORR_Y.has(y)) return null;
-  const cc = BX0.findIndex((x0) => x >= x0 && x < x0 + BLOCK_W);
-  const rr = BY0.findIndex((y0) => y >= y0 && y < y0 + BLOCK_H);
-  if (cc < 0 || rr < 0) return null;
-  return { cc, rr };
-}
-
-// ── layout computed once (doors, furniture, seats, waiting spots) ────────────
-type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa';
-interface Piece { x: number; y: number; kind: Kind; }
-
+// ── per-tile classification (interior / wall / door) computed once ───────────
+const interiorOf = new Map<string, RoomDef>();   // tile -> room whose interior it is
+const wallCollide = new Set<string>();            // all room-border tiles (non-walkable)
+const wallDrawN = new Set<string>();              // north-border tiles to draw
+const wallDrawW = new Set<string>();              // west-border tiles to draw
 const doorSet = new Set<string>();
-const blocked = new Set<string>();     // non-walkable furniture tiles
-const pieces: Piece[] = [];
+const blocked = new Set<string>();                // furniture (non-walkable)
+type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa' | 'arcade' | 'vending' | 'chair';
+const pieces: { x: number; y: number; kind: Kind }[] = [];
 const seatsByDept = new Map<Department, Tile[]>();
 const waitingSpots: Tile[] = [];
 let godSeat: Tile = { x: 1, y: 1 };
 
 const key = (x: number, y: number): string => `${x},${y}`;
-function addPiece(x: number, y: number, kind: Kind, block = true): void { pieces.push({ x, y, kind }); if (block) blocked.add(key(x, y)); }
+const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pieces.push({ x, y, kind }); if (block) blocked.add(key(x, y)); };
 
-(function computeLayout(): void {
-  for (let rr = 0; rr < 3; rr++) for (let cc = 0; cc < 3; cc++) {
-    const room = GRID[rr][cc];
-    const ox = BX0[cc] + 1, oy = BY0[rr] + 1; // interior origin (7x4: dx0..6, dy0..3)
-    // door: on a wall facing the centre, at wall mid
-    const bx0 = BX0[cc], by0 = BY0[rr];
-    const doors: [number, number][] = [];
-    if (room === 'waiting') { doors.push([bx0, by0 + 3], [bx0 + BLOCK_W - 1, by0 + 2], [bx0 + 4, by0], [bx0 + 4, by0 + BLOCK_H - 1]); }
-    else {
-      if (cc === 0) doors.push([bx0 + BLOCK_W - 1, by0 + 2]);        // right
-      else if (cc === 2) doors.push([bx0, by0 + 2]);                 // left
-      else if (rr === 0) doors.push([bx0 + 4, by0 + BLOCK_H - 1]);   // bottom
-      else doors.push([bx0 + 4, by0]);                              // top
+(function computeTiles(): void {
+  for (const r of rooms) {
+    const x0 = r.ix - 1, y0 = r.iy - 1, x1 = r.ix + r.iw, y1 = r.iy + r.ih; // border coords
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const border = x === x0 || x === x1 || y === y0 || y === y1;
+      if (border) {
+        wallCollide.add(key(x, y));
+        if (y === y0 && x < x1) wallDrawN.add(key(x, y));   // north run (skip the shared corner)
+        if (x === x0 && y < y1) wallDrawW.add(key(x, y));   // west run
+      } else {
+        interiorOf.set(key(x, y), r);
+      }
     }
-    for (const [dx, dy] of doors) doorSet.add(key(dx, dy));
+    // door on the wall facing the nearest corridor
+    const midx = r.ix + Math.floor(r.iw / 2), midy = r.iy + Math.floor(r.ih / 2);
+    if (r.name === 'waiting') { doorSet.add(key(midx, y0)); doorSet.add(key(midx, y1)); doorSet.add(key(x0, midy)); doorSet.add(key(x1, midy)); }
+    else if (r.iy < ISO_GH / 2) doorSet.add(key(midx, y1)); // top rooms open downward
+    else doorSet.add(key(midx, y0));                        // bottom rooms open upward
 
-    if (room === 'waiting') {
-      for (let dx = 0; dx < 7; dx++) addPiece(ox + dx, oy, 'bench');         // bench row at back
-      for (let dy = 1; dy < 4; dy++) for (let dx = 0; dx < 7; dx++) waitingSpots.push({ x: ox + dx, y: oy + dy });
-    } else if (room === 'lounge') {
-      addPiece(ox + 3, oy + 1, 'pool'); addPiece(ox + 3, oy + 2, 'pool', false);
-      addPiece(ox + 5, oy, 'sofa'); addPiece(ox + 1, oy, 'plant'); addPiece(ox + 6, oy + 3, 'plant');
+    // furniture + seats
+    const ix = r.ix, iy = r.iy;
+    if (r.name === 'waiting') {
+      for (let dx = 0; dx < r.iw; dx += 2) addPiece(ix + dx, iy, 'bench');
+      for (let dy = 2; dy < r.ih; dy++) for (let dx = 0; dx < r.iw; dx++) waitingSpots.push({ x: ix + dx, y: iy + dy });
+      godSeat = { x: ix + Math.floor(r.iw / 2), y: iy + r.ih - 1 };
+    } else if (r.name === 'lounge') {
+      addPiece(ix + 2, iy + 1, 'pool'); addPiece(ix + 2, iy + 2, 'pool', false);
+      addPiece(ix, iy, 'arcade'); addPiece(ix + r.iw - 1, iy, 'vending');
+      addPiece(ix + r.iw - 1, iy + r.ih - 1, 'plant'); addPiece(ix, iy + r.ih - 1, 'sofa');
     } else {
-      addPiece(ox + 1, oy, 'bookshelf'); addPiece(ox + 4, oy, 'bookshelf'); addPiece(ox + 6, oy, 'plant');
       const seats: Tile[] = [];
-      for (const dx of [1, 3, 5]) { addPiece(ox + dx, oy + 1, 'desk'); seats.push({ x: ox + dx, y: oy + 2 }); } // seat in front of desk
-      seatsByDept.set(room, seats);
+      for (let k = 0; k < r.n; k++) {
+        const dx = 1 + k * 2;
+        addPiece(ix + dx, iy, 'desk');          // desk against the back wall
+        seats.push({ x: ix + dx, y: iy + 1 });  // agent stands in front of the desk
+      }
+      addPiece(ix + r.iw - 1, iy, 'bookshelf');
+      addPiece(ix + r.iw - 1, iy + r.ih - 1, 'plant');
+      seatsByDept.set(r.name, seats);
     }
   }
-  // god oversees from the front-centre of the waiting room
-  const wOx = BX0[1] + 1, wOy = BY0[1] + 1;
-  godSeat = { x: wOx + 3, y: wOy + 3 };
 })();
 
 export function isoRoomsProjection(): Projection {
   return { kind: 'iso', tileSize: TILE, tileW: TW, tileH: TH, originX: ORIGIN_X, originY: ORIGIN_Y };
 }
-
-function isWallTile(x: number, y: number): boolean {
-  const b = blockOf(x, y);
-  if (!b) return false; // corridor
-  const bx = x - BX0[b.cc], by = y - BY0[b.rr];
-  const border = bx === 0 || bx === BLOCK_W - 1 || by === 0 || by === BLOCK_H - 1;
-  return border && !doorSet.has(key(x, y));
-}
-/** walkable = corridors + room interiors + doors, minus furniture, within grid */
 export function isoWalkable(x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= ISO_GW || y >= ISO_GH) return false;
-  if (isWallTile(x, y)) return false;
+  if (wallCollide.has(key(x, y)) && !doorSet.has(key(x, y))) return false;
   if (blocked.has(key(x, y))) return false;
-  return true;
+  return true; // corridors + room interiors + doors
 }
 export function isoWaitingSpots(): Tile[] { return waitingSpots; }
-export function isoGodSeat(): Tile { return godSeat; }
+/** synthetic Tiled map so room sizes aren't capped by office.tmj's 34x22. */
+export function isoSyntheticMap(): { width: number; height: number; tilewidth: number; tileheight: number; layers: []; tilesets: [] } {
+  return { width: ISO_GW, height: ISO_GH, tilewidth: TILE, tileheight: TILE, layers: [], tilesets: [] };
+}
 
 // ── colours + primitives ────────────────────────────────────────────────────
 const shade = (n: number, f: number): number => { const r = Math.min(255, Math.round(((n >> 16) & 255) * f)), g = Math.min(255, Math.round(((n >> 8) & 255) * f)), b = Math.min(255, Math.round((n & 255) * f)); return (r << 16) | (g << 8) | b; };
 const mixHex = (a: number, b: number, t: number): number => { const r = Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * t); const g = Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * t); const bl = Math.round((a & 255) + ((b & 255) - (a & 255)) * t); return (r << 16) | (g << 8) | bl; };
-
-function diamond(g: Graphics, cx: number, cy: number, hw: number, hh: number, color: number, alpha = 1): void { g.poly([cx, cy - hh, cx + hw, cy, cx, cy + hh, cx - hw, cy]).fill({ color, alpha }); }
+const diamond = (g: Graphics, cx: number, cy: number, hw: number, hh: number, color: number, alpha = 1): void => { g.poly([cx, cy - hh, cx + hw, cy, cx, cy + hh, cx - hw, cy]).fill({ color, alpha }); };
 function prism(g: Graphics, cx: number, cy: number, hw: number, hh: number, ht: number, top: number, left: number, right: number): void {
   diamond(g, cx, cy + 2, hw + 3, hh + 2, 0x000000, 0.28);
   g.poly([cx - hw, cy - ht, cx, cy - ht + hh, cx, cy + hh, cx - hw, cy]).fill(left);
@@ -123,51 +145,69 @@ function prism(g: Graphics, cx: number, cy: number, hw: number, hh: number, ht: 
   diamond(g, cx, cy - ht, hw, hh, top);
 }
 
-function drawPiece(g: Graphics, p: Piece): void {
+function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
   const { x, y } = project(p.x, p.y);
   switch (p.kind) {
-    case 'desk': { const w = 0x8a714a; prism(g, x, y, 13, 7, 9, mixHex(w, 0xffffff, 0.12), shade(w, 0.72), shade(w, 0.55)); g.rect(x - 6, y - 25, 12, 12).fill(0x24282f); g.rect(x - 4, y - 23, 8, 8).fill(0x6ea0b0); break; }
-    case 'bookshelf': { const w = 0x63432a; prism(g, x, y, 13, 6, 34, shade(w, 1.05), shade(w, 0.7), shade(w, 0.5)); const bk = [0xbe4638, 0xd2aa46, 0x4678aa, 0x5aa06e, 0xaa6eb4]; for (let s = 0; s < 3; s++) { const yy = y - 8 - s * 9; for (let i = 0; i < 6; i++) g.rect(x - 8 + i * 3, yy - 5, 2, 5).fill(bk[(i + s) % 5]); } break; }
-    case 'plant': { diamond(g, x, y + 2, 8, 5, 0x000000, 0.25); g.rect(x - 4, y - 10, 8, 10).fill(0x966044); diamond(g, x, y - 18, 16, 11, 0x407a46); diamond(g, x - 2, y - 24, 12, 9, 0x568e5c); break; }
-    case 'bench': { const c = 0x7a5a3c; prism(g, x, y, 12, 6, 6, shade(c, 1.1), shade(c, 0.72), shade(c, 0.55)); g.rect(x - 12, y - 16, 24, 8).fill(shade(c, 0.85)); break; }
-    case 'pool': { prism(g, x, y, 15, 8, 8, 0x5c3e28, 0x46301c, 0x362416); diamond(g, x, y - 8, 13, 7, 0x287846); break; }
-    case 'sofa': { const c = 0x964650; prism(g, x, y, 15, 8, 8, shade(c, 1.1), shade(c, 0.72), shade(c, 0.55)); g.rect(x - 15, y - 22, 30, 12).fill(shade(c, 0.8)); break; }
+    case 'desk': { const w = 0x8a714a; prism(g, x, y, 12, 6, 8, mixHex(w, 0xffffff, 0.14), shade(w, 0.72), shade(w, 0.55));
+      g.rect(x - 6, y - 24, 12, 11).fill(0x1c2028); g.rect(x - 5, y - 23, 10, 8).fill(0x74b4c8); g.rect(x - 4, y - 22, 3, 2).fill(0xbfe6ee); // monitor
+      g.rect(x - 6, y - 8, 9, 3).fill(0xdadde2); g.rect(x + 4, y - 7, 2, 2).fill(0xdadde2); g.rect(x + 1, y - 11, 4, 3).fill(0xf3f0e7); break; } // keyboard/mouse/papers
+    case 'bookshelf': { const w = 0x63432a; prism(g, x, y, 12, 6, 30, shade(w, 1.05), shade(w, 0.7), shade(w, 0.48)); const bk = [0xbe4638, 0xd2aa46, 0x4678aa, 0x5aa06e, 0xaa6eb4, 0xd98a4a]; for (let s = 0; s < 3; s++) { const yy = y - 7 - s * 8; for (let i = 0; i < 6; i++) g.rect(x - 8 + i * 3, yy - 5, 2, 5).fill(bk[(i + s) % bk.length]); g.rect(x - 9, yy, 18, 1).fill(shade(w, 0.4)); } break; }
+    case 'plant': { diamond(g, x, y + 2, 8, 5, 0x000000, 0.25); g.rect(x - 3, y - 9, 6, 9).fill(0x9a6444); g.rect(x - 3, y - 10, 6, 1).fill(0x7a4e34); diamond(g, x, y - 17, 15, 10, 0x3e7644); diamond(g, x - 2, y - 23, 11, 8, 0x548a58); diamond(g, x + 3, y - 21, 8, 6, 0x468050); break; }
+    case 'bench': { const c = 0x7a5a3c; prism(g, x, y, 11, 6, 6, shade(c, 1.1), shade(c, 0.72), shade(c, 0.55)); g.rect(x - 11, y - 15, 22, 7).fill(shade(c, 0.85)); break; }
+    case 'pool': { prism(g, x, y, 15, 8, 8, 0x5c3e28, 0x46301c, 0x362416); diamond(g, x, y - 8, 13, 7, 0x2a7a48); for (const [bx, by, c] of [[-6, -1, 0xe6dc3c], [-2, 2, 0xc83c3c], [4, -1, 0xe6e6eb], [7, 2, 0x3c5abe]] as [number, number, number][]) g.circle(x + bx, y - 8 + by, 1).fill(c); break; }
+    case 'sofa': { const c = 0x8c4450; prism(g, x, y, 14, 7, 8, shade(c, 1.1), shade(c, 0.72), shade(c, 0.55)); g.rect(x - 14, y - 22, 28, 12).fill(shade(c, 0.82)); g.rect(x - 13, y - 9, 8, 3).fill(shade(c, 1.15)); g.rect(x - 3, y - 9, 8, 3).fill(shade(c, 1.15)); break; }
+    case 'arcade': { const c = 0x3a2a66; prism(g, x, y, 7, 5, 26, shade(c, 1.15), shade(c, 0.72), shade(c, 0.5)); g.rect(x - 4, y - 24, 8, 4).fill(0xe24a7a); g.rect(x - 4, y - 20, 8, 6).fill(0x28c8dc); g.rect(x - 3, y - 12, 8, 3).fill(0x1a1a24); g.circle(x - 1, y - 10, 1).fill(0xe6d23c); break; }
+    case 'vending': { const c = 0xb03a3a; prism(g, x, y, 7, 5, 24, shade(c, 1.08), shade(c, 0.72), shade(c, 0.5)); g.rect(x - 4, y - 22, 8, 14).fill(0x1e2836); const it = [0xf0d24a, 0x5aaad2, 0xe6785a]; for (let r = 0; r < 3; r++) for (let cc = 0; cc < 3; cc++) g.rect(x - 3 + cc * 3, y - 20 + r * 4, 2, 2).fill(it[(r + cc) % 3]); break; }
+    case 'chair': { const c = 0x50845e; prism(g, x, y, 4, 3, 6, shade(c, 1.1), shade(c, 0.7), shade(c, 0.55)); g.rect(x - 3, y - 12, 6, 5).fill(shade(c, 0.8)); break; }
   }
 }
 
 function floorColor(x: number, y: number): number {
-  const b = blockOf(x, y);
-  if (!b) return (x + y) % 2 ? 0x2e3342 : 0x272b38;            // corridor
-  const room = GRID[b.rr][b.cc];
-  if (room === 'waiting') return (x + y) % 2 ? 0x6a6152 : 0x5f5748;   // warm neutral
-  if (room === 'lounge') return (x + y) % 2 ? 0x5a3550 : 0x4e2e46;
-  const accent = accentByName[DEPARTMENT_ACCENT[room]];
-  return (x + y) % 2 ? mixHex(accent, 0x141414, 0.55) : mixHex(accent, 0x141414, 0.62);
+  const r = interiorOf.get(key(x, y));
+  if (!r) return (x + y) % 2 ? 0x2f3442 : 0x282c38;              // corridor
+  if (r.name === 'waiting') return (x + y) % 2 ? 0x6a6152 : 0x5f5748;
+  if (r.name === 'lounge') return (x + y) % 2 ? 0x5a3550 : 0x4e2e46;
+  const accent = accentByName[DEPARTMENT_ACCENT[r.name]];
+  return (x + y) % 2 ? mixHex(accent, 0x141414, 0.5) : mixHex(accent, 0x141414, 0.58);
+}
+
+// a THIN wall segment (only back walls are drawn → open-box rooms)
+function drawWall(g: Graphics, x: number, y: number, north: boolean): void {
+  const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2, th = 4; // th = visual thickness
+  const face = 0x39415a, side = shade(0x39415a, 0.74), rim = 0x5a6284;
+  if (north) { // runs along +x (down-right): a thin raised bar on the tile's back edge
+    const ax = p.x, ay = p.y - TH2, bx = p.x + TW2, by = p.y;
+    g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by - WALL_H + th, ax, ay - WALL_H + th]).fill(rim);
+    g.poly([ax, ay - WALL_H + th, bx, by - WALL_H + th, bx, by, ax, ay]).fill(face);
+    g.poly([ax, ay - WALL_H, ax, ay, ax - 0, ay]).fill(side);
+  } else { // west wall runs along +y (down-left)
+    const ax = p.x - TW2, ay = p.y, bx = p.x, by = p.y - TH2;
+    g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by - WALL_H + th, ax, ay - WALL_H + th]).fill(rim);
+    g.poly([ax, ay - WALL_H + th, bx, by - WALL_H + th, bx, by, ax, ay]).fill(side);
+  }
 }
 
 export function buildIsoRooms(): { container: Container; seatsByDept: Map<Department, Tile[]>; godSeat: Tile; worldW: number; worldH: number } {
   const container = new Container();
   container.sortableChildren = true;
 
+  // floor (rooms + corridors)
+  const floor = new Graphics(); floor.zIndex = -1e6;
   for (let ty = 0; ty < ISO_GH; ty++) for (let tx = 0; tx < ISO_GW; tx++) {
-    const p = project(tx, ty), g = new Graphics();
-    if (isWallTile(tx, ty)) {
-      const face = 0x343c52, side = shade(0x343c52, 0.72), rim = 0x545c78;
-      g.poly([p.x - TW / 2, p.y - WALL_H, p.x, p.y - WALL_H + TH / 2, p.x, p.y + TH / 2, p.x - TW / 2, p.y]).fill(side);
-      g.poly([p.x, p.y - WALL_H + TH / 2, p.x + TW / 2, p.y - WALL_H, p.x + TW / 2, p.y, p.x, p.y + TH / 2]).fill(face);
-      diamond(g, p.x, p.y - WALL_H, TW / 2, TH / 2, rim);
-      g.zIndex = tx + ty;
-    } else {
-      // only paint floor for in-grid tiles (skip the unused pad row/col)
-      if (blockOf(tx, ty) || CORR_X.has(tx) || CORR_Y.has(ty)) {
-        diamond(g, p.x, p.y, TW / 2, TH / 2, floorColor(tx, ty));
-      }
-      g.zIndex = tx + ty - 0.3;
+    if (wallCollide.has(key(tx, ty)) && !doorSet.has(key(tx, ty)) && !interiorOf.has(key(tx, ty))) {
+      // wall footprint tiles still get a floor beneath (so no gap under thin walls)
     }
-    container.addChild(g);
+    const p = project(tx, ty);
+    diamond(floor, p.x, p.y, TW / 2, TH / 2, floorColor(tx, ty));
   }
+  container.addChild(floor);
 
-  const fg = new Graphics(); fg.zIndex = 1e6;
+  // back walls (thin), depth-sorted so furniture/agents in front can overlap
+  for (const k of wallDrawN) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, true); g.zIndex = x + y; container.addChild(g); }
+  for (const k of wallDrawW) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, false); g.zIndex = x + y; container.addChild(g); }
+
+  // furniture
+  const fg = new Graphics(); fg.zIndex = 5e5;
   for (const p of pieces) drawPiece(fg, p);
   container.addChild(fg);
 
