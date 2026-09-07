@@ -5,7 +5,7 @@ import { Application, Container, Graphics, Ticker, Texture, Text } from 'pixi.js
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
 import { TiledMapRenderer } from './TiledMapRenderer';
-import { isoRoomsProjection, buildIsoRooms, isoWalkable } from './isoRoomsScene';
+import { isoRoomsProjection, buildIsoRooms, isoWalkable, isoWaitingSpots } from './isoRoomsScene';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
 import { DeskScreen } from './DeskScreen';
@@ -61,6 +61,8 @@ interface Runtime {
   character: Character;
   seatIndex: number | null;
   waitTile: Tile;
+  /** iso: where this agent waits (central sala de espera) until it is active */
+  waitingSpot?: Tile;
   charName: string;
   prevStatus?: string;
   prevAction?: string;
@@ -305,6 +307,7 @@ export function OfficeFloor() {
       const camera = new Camera(world);
       if (isoRooms) {
         camera.setMapSize(isoRooms.worldW, isoRooms.worldH);
+        camera.setFitBoost(1.85); // fill the viewport (crop the empty iso corners)
       } else {
         camera.setMapSize(mapRenderer.width * mapRenderer.tileSize, mapRenderer.height * mapRenderer.tileSize);
       }
@@ -1446,6 +1449,8 @@ export function OfficeFloor() {
       const taskBoardPoll = setInterval(() => { void pollTaskBoard(); }, 5000);
       (app as any).__taskBoardPoll = taskBoardPoll;
 
+      const isoWaits = isoRooms ? isoWaitingSpots() : [];
+      let waitAssign = 0;
       const addCharacter = async (agent: Agent) => {
         const charName = theme.cast.byName[agent.character] ? agent.character : theme.cast.defaultCharacter;
         const member = theme.cast.byName[charName];
@@ -1454,6 +1459,10 @@ export function OfficeFloor() {
           ?? mapRenderer.getSpawnPoint('entrance')
           ?? { x: 2, y: 2 };
         const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
+        // iso: each agent waits in the central sala de espera until it's active
+        const waitingSpot: Tile | undefined = isoRooms
+          ? (agent.isGod ? isoRooms.godSeat : (isoWaits[waitAssign++ % isoWaits.length] ?? seatTile))
+          : undefined;
         const frames = await theme.cast.getFrames(charName);
         // Bail if the agent was removed (or scene torn down) while loading.
         if (mountIdRef.current !== mountId) return;
@@ -1467,14 +1476,14 @@ export function OfficeFloor() {
           frames,
           seatTile,
           seatDirection: facingForSeat(seatTile),
-          // iso rooms: appear seated (the office.tmj entrance is outside the room
-          // layout, so there's no walk-in path); top-down still walks in.
-          spawnTile: isoRooms ? seatTile : entrance,
+          // iso rooms: agents start in the central waiting room (god at its post);
+          // top-down still walks in from the office door.
+          spawnTile: isoRooms ? (agent.isGod ? isoRooms.godSeat : (waitingSpot ?? seatTile)) : entrance,
           glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
           onClick: (id) => useStore.getState().select(id),
         });
         character.show(charLayer);
-        const rt: Runtime = { character, seatIndex, waitTile, charName };
+        const rt: Runtime = { character, seatIndex, waitTile, waitingSpot, charName };
         // Standard desks paint the 2×2 PC monitor two rows above the seat —
         // give those a DeskScreen (lights up while seated) and a cup spot
         // beside the monitor, exactly where the tileset's baked-in mug used
@@ -1571,6 +1580,23 @@ export function OfficeFloor() {
             return;
           }
           releaseRun(rt);
+        }
+
+        // ISO: agents wait in the central sala de espera until they're active,
+        // then walk (through doors/corridors, respecting collision) to their
+        // department desk. No wandering.
+        if (isoRooms) {
+          const s = agent.status;
+          const active = agent.isGod || s === 'working' || s === 'thinking' || s === 'compacting' || s === 'looping' || s === 'waiting' || s === 'blocked';
+          c.setStatusGlyph(s === 'blocked' ? 'blocked' : s === 'compacting' ? 'compacting' : s === 'looping' ? 'looping' : s === 'success' ? 'success' : 'none');
+          if (active) {
+            c.sitAtDesk(s === 'working' || s === 'thinking' || s === 'compacting');
+            c.showThought(liveActivity(agent, agent.isGod ? t('office.activity.runningFloor') : t('office.activity.waiting')), agent.carrying);
+          } else {
+            if (rt.waitingSpot) c.walkToTile(rt.waitingSpot);
+            c.showThought(liveActivity(agent, t('office.activity.idle')));
+          }
+          return;
         }
 
         // A thought cloud above the head shows what the agent is doing RIGHT NOW
@@ -1761,9 +1787,12 @@ export function OfficeFloor() {
           rt.character.setBubbleZoom(zoom);
           rt.character.update(dt);
         }
-        updateCafeteria(dt);
-        updateCoffeeRuns(dt);
-        updateErrands(dt);
+        // iso: no cafeteria/coffee/errand roaming — agents wait or work in place
+        if (!isoRooms) {
+          updateCafeteria(dt);
+          updateCoffeeRuns(dt);
+          updateErrands(dt);
+        }
         updateBossAura(dt);
         updateDeskLife(dt);
         updateBoardMoves(dt);

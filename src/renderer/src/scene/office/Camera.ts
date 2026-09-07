@@ -21,6 +21,7 @@ export class Camera {
   private mapHeight = 480;
   private manualOverride = false;
 
+  private fitBoost = 1;
   private nudgeOffsetX = 0;
   private nudgeOffsetY = 0;
   private nudgeElapsed = 0;
@@ -34,6 +35,13 @@ export class Camera {
   setMapSize(width: number, height: number): void {
     this.mapWidth = width;
     this.mapHeight = height;
+  }
+
+  /** Multiply the fit-to-screen zoom so the map fills more of the viewport
+   *  (>1 zooms in, cropping the empty iso corners). */
+  setFitBoost(f: number): void {
+    this.fitBoost = f;
+    if (!this.manualOverride) this.fitToScreen();
   }
 
   setViewSize(width: number, height: number): void {
@@ -52,7 +60,7 @@ export class Camera {
     this.manualOverride = false;
     this.targetX = this.mapWidth / 2;
     this.targetY = this.mapHeight / 2;
-    this.targetZoom = this.getMinZoom();
+    this.targetZoom = this.getMinZoom() * this.fitBoost;
   }
 
   /** Pan/zoom toward a world point (used when an agent is selected). */
