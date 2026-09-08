@@ -193,18 +193,21 @@ function floorColor(x: number, y: number): number {
 // Thin walls on all 4 room edges. The two BACK edges (N/W) are tall; the two
 // FRONT edges (S/E) are short low walls (a murito) so the room reads enclosed on
 // 4 sides without hiding the interior — the trick the reference uses.
-const WALL_BASE = 0x424b68, WALL_TRIM = 0x646e92, WALL_FOOT = 0x2b3149;
+const WALL_BASE = 0x4a5578, WALL_TOP = 0x6b79a4, WALL_FOOT = 0x2b3149;
+// Wall with real thickness: a face + a lighter TOP CAP (the slab's top surface),
+// plus a baseboard. The cap is what makes it read as a solid 3D wall, not a flat
+// line. Back walls (N/W) tall; front walls (S/E) low muritos.
 function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void {
   const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
-  const H = edge === 'N' || edge === 'W' ? WALL_H : 14; // front walls are low (murito)
-  let ax: number, ay: number, bx: number, by: number, f: number;
-  if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; f = WALL_BASE; }
-  else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; f = shade(WALL_BASE, 0.8); }
-  else if (edge === 'S') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y + TH2; f = shade(WALL_BASE, 0.68); }
-  else { ax = p.x; ay = p.y + TH2; bx = p.x + TW2; by = p.y; f = shade(WALL_BASE, 0.6); }
-  g.poly([ax, ay - H, bx, by - H, bx, by, ax, ay]).fill(f);                                    // panel
-  g.poly([ax, ay - H, bx, by - H, bx, by - H + 2, ax, ay - H + 2]).fill(WALL_TRIM);            // top trim
-  g.poly([ax, ay - 3, bx, by - 3, bx, by, ax, ay]).fill(shade(WALL_FOOT, edge === 'N' ? 1 : 0.85)); // baseboard
+  const H = edge === 'N' || edge === 'W' ? WALL_H : 14;
+  let ax: number, ay: number, bx: number, by: number, inx: number, iny: number, f: number;
+  if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = 3; f = WALL_BASE; }
+  else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; inx = 7; iny = 3; f = shade(WALL_BASE, 0.82); }
+  else if (edge === 'S') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y + TH2; inx = 7; iny = -3; f = shade(WALL_BASE, 0.72); }
+  else { ax = p.x; ay = p.y + TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = -3; f = shade(WALL_BASE, 0.6); }
+  g.poly([ax, ay - H, bx, by - H, bx, by, ax, ay]).fill(f);                                          // outer face
+  g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(WALL_FOOT, edge === 'N' ? 1 : 0.85));  // baseboard
+  g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(WALL_TOP);    // top cap (thickness)
 }
 
 export interface DepthItem { g: Graphics; z: number; }
