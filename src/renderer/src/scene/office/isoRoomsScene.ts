@@ -15,7 +15,7 @@ import { Projection } from './projection';
 
 export interface Tile { x: number; y: number; }
 
-const TILE = 16, TW = 32, TH = 16, WALL_H = 24, CORR = 3;
+const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 3;
 
 type RoomName = Department | 'lounge' | 'waiting';
 interface RoomDef { name: RoomName; n: number; iw: number; ih: number; ix: number; iy: number; }
@@ -120,6 +120,15 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
   }
 })();
 
+// spread waiting-room assignment so consecutive agents don't fill one diagonal
+// (deterministic interleave: large stride through the spaced spots)
+(function spreadWaiting(): void {
+  if (waitingSpots.length < 3) return;
+  const src = waitingSpots.slice(), out: Tile[] = [], stride = 5;
+  for (let i = 0, idx = 0; i < src.length; i++) { while (out.includes(src[idx % src.length])) idx++; out.push(src[idx % src.length]); idx += stride; }
+  waitingSpots.length = 0; waitingSpots.push(...out);
+})();
+
 export function isoRoomsProjection(): Projection {
   return { kind: 'iso', tileSize: TILE, tileW: TW, tileH: TH, originX: ORIGIN_X, originY: ORIGIN_Y };
 }
@@ -188,41 +197,37 @@ function drawWall(g: Graphics, x: number, y: number, north: boolean): void {
   g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(base, north ? 1 : 0.85)); // baseboard
 }
 
-export function buildIsoRooms(): { container: Container; seatsByDept: Map<Department, Tile[]>; godSeat: Tile; worldW: number; worldH: number } {
-  const container = new Container();
-  container.sortableChildren = true;
-
-  // floor (rooms + corridors)
-  const floor = new Graphics(); floor.zIndex = -1e6;
+export interface DepthItem { g: Graphics; z: number; }
+export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; labels: Container; seatsByDept: Map<Department, Tile[]>; godSeat: Tile; worldW: number; worldH: number } {
+  // Floor stays behind everything.
+  const floorC = new Container();
+  const floor = new Graphics();
   for (let ty = 0; ty < ISO_GH; ty++) for (let tx = 0; tx < ISO_GW; tx++) {
-    if (wallCollide.has(key(tx, ty)) && !doorSet.has(key(tx, ty)) && !interiorOf.has(key(tx, ty))) {
-      // wall footprint tiles still get a floor beneath (so no gap under thin walls)
-    }
     const p = project(tx, ty);
     diamond(floor, p.x, p.y, TW / 2, TH / 2, floorColor(tx, ty));
   }
-  container.addChild(floor);
+  floorC.addChild(floor);
 
-  // back walls (thin), depth-sorted so furniture/agents in front can overlap
-  for (const k of wallDrawN) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, true); g.zIndex = x + y; container.addChild(g); }
-  for (const k of wallDrawW) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, false); g.zIndex = x + y; container.addChild(g); }
+  // Walls + furniture become individually depth-keyed items so they INTERLEAVE
+  // with the agents (added to the same sortable layer, sorted by baseline Y) —
+  // an agent behind a wall/shelf is occluded, in front it occludes. This is what
+  // makes it read as 3D space instead of flat.
+  const depthItems: DepthItem[] = [];
+  for (const k of wallDrawN) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, true); depthItems.push({ g, z: project(x, y).y }); }
+  for (const k of wallDrawW) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, false); depthItems.push({ g, z: project(x, y).y }); }
+  for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.5 }); }
 
-  // furniture
-  const fg = new Graphics(); fg.zIndex = 5e5;
-  for (const p of pieces) drawPiece(fg, p);
-  container.addChild(fg);
-
-  // room labels (hover above each room's back corner)
+  // Labels always on top.
+  const labels = new Container();
   for (const r of rooms) {
     const label = r.name === 'waiting' ? 'SALA DE ESPERA' : r.name === 'lounge' ? 'LOUNGE' : r.name.toUpperCase();
     const p = project(r.ix + r.iw / 2, r.iy);
     const t = new Text({ text: label, style: { fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold', fill: 0xf2eedd, stroke: { color: 0x1a1d29, width: 3 } } });
     t.anchor.set(0.5, 1);
     t.position.set(p.x, p.y - WALL_H - 3);
-    t.zIndex = 9e6;
-    container.addChild(t);
+    labels.addChild(t);
   }
 
   const bottom = project(ISO_GW, ISO_GH);
-  return { container, seatsByDept, godSeat, worldW: ORIGIN_X + ISO_GW * (TW / 2) + 20, worldH: bottom.y + 40 };
+  return { floor: floorC, depthItems, labels, seatsByDept, godSeat, worldW: ORIGIN_X + ISO_GW * (TW / 2) + 20, worldH: bottom.y + 40 };
 }

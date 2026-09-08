@@ -303,9 +303,15 @@ export function OfficeFloor() {
       const mapData = isoMode ? (isoSyntheticMap() as unknown as typeof themeMap) : themeMap;
       const mapRenderer = new TiledMapRenderer(mapData, tilesetTextures, projection, !isoMode);
       const isoRooms = isoMode ? buildIsoRooms() : null;
-      if (isoRooms) { mapRenderer.setWalkable(isoWalkable); world.addChild(isoRooms.container); }
+      if (isoRooms) { mapRenderer.setWalkable(isoWalkable); world.addChild(isoRooms.floor); }
       world.addChild(mapRenderer.getContainer());
       const charLayer = mapRenderer.getCharacterContainer();
+      if (isoRooms) {
+        // walls + furniture share the character layer's depth sort so agents are
+        // occluded by (or occlude) them by baseline Y — real iso depth.
+        for (const it of isoRooms.depthItems) { it.g.zIndex = it.z; charLayer.addChild(it.g); }
+        world.addChild(isoRooms.labels); // labels always on top
+      }
 
       const camera = new Camera(world);
       if (isoRooms) {
