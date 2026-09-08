@@ -323,6 +323,21 @@ export function OfficeFloor() {
       camera.setViewSize(app.screen.width, app.screen.height);
       camera.fitToScreen();
 
+      // Free camera: drag to pan, wheel to zoom (so you can move around the plan).
+      {
+        const canvas = app.canvas as HTMLCanvasElement;
+        let dragging = false, lastX = 0, lastY = 0, moved = 0;
+        canvas.addEventListener('pointerdown', (e) => { dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY; try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ } });
+        canvas.addEventListener('pointerup', () => { dragging = false; });
+        canvas.addEventListener('pointermove', (e) => {
+          if (!dragging) return;
+          const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
+          moved += Math.abs(dx) + Math.abs(dy);
+          if (moved > 3) camera.panByScreen(dx, dy);
+        });
+        canvas.addEventListener('wheel', (e) => { e.preventDefault(); camera.zoomByFactor(e.deltaY < 0 ? 1.12 : 0.89); }, { passive: false });
+      }
+
       // ─── The boss's wall calendar → TRIGGERS ───────────────────────────────
       // A little tear-off month page hangs on the CEO office wall. Clicking it
       // selects Michael (the god) and opens the Command Center's TRIGGERS tab —

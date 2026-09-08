@@ -87,10 +87,13 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
       roomFloorOf.set(key(x, y), r); // whole room rect (incl. walls) gets the room floor
       if (border) {
         wallCollide.add(key(x, y));
-        if (y === y0 && x < x1) wallDrawN.add(key(x, y));   // north run (skip the shared corner)
-        if (x === x0 && y < y1) wallDrawW.add(key(x, y));   // west run
-        if (y === y1 && x > x0) wallDrawS.add(key(x, y));   // south run (short front)
-        if (x === x1 && y > y0) wallDrawE.add(key(x, y));   // east run  (short front)
+        // tall back walls (top + left) run corner-to-corner and MEET at the back
+        // corner; low front walls (bottom + right) fill the rest — every corner
+        // is covered so walls join with no gaps.
+        if (y === y0) wallDrawN.add(key(x, y));                       // full tall top
+        if (x === x0 && y > y0) wallDrawW.add(key(x, y));             // tall left
+        if (y === y1 && x > x0) wallDrawS.add(key(x, y));             // low bottom
+        if (x === x1 && y > y0 && y < y1) wallDrawE.add(key(x, y));   // low right
       } else {
         interiorOf.set(key(x, y), r);
       }

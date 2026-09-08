@@ -71,6 +71,20 @@ export class Camera {
     this.targetZoom = Math.max(this.getMinZoom(), Math.min(4, zoom ?? this.currentZoom));
   }
 
+  /** Drag-pan by a screen-pixel delta (mouse drag). Takes manual control. */
+  panByScreen(dxScreen: number, dyScreen: number): void {
+    this.manualOverride = true;
+    this.targetX -= dxScreen / this.currentZoom;
+    this.targetY -= dyScreen / this.currentZoom;
+  }
+
+  /** Zoom in/out by a factor around the current centre (mouse wheel). */
+  zoomByFactor(factor: number): void {
+    this.manualOverride = true;
+    const min = this.getMinZoom() * 0.6;
+    this.targetZoom = Math.max(min, Math.min(4, this.targetZoom * factor));
+  }
+
   /** A gentle, decaying pan toward a world point without taking manual control. */
   nudgeToward(worldX: number, worldY: number, duration = 1200): void {
     if (this.manualOverride) return;
