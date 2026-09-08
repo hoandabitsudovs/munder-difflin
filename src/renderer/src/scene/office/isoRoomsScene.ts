@@ -63,8 +63,10 @@ const project = (tx: number, ty: number): { x: number; y: number } => ({ x: ORIG
 // ── per-tile classification (interior / wall / door) computed once ───────────
 const interiorOf = new Map<string, RoomDef>();   // tile -> room whose interior it is
 const wallCollide = new Set<string>();            // all room-border tiles (non-walkable)
-const wallDrawN = new Set<string>();              // north-border tiles to draw
-const wallDrawW = new Set<string>();              // west-border tiles to draw
+const wallDrawN = new Set<string>();              // north-border (tall back wall)
+const wallDrawW = new Set<string>();              // west-border  (tall back wall)
+const wallDrawS = new Set<string>();              // south-border (short front wall)
+const wallDrawE = new Set<string>();              // east-border  (short front wall)
 const doorSet = new Set<string>();
 const blocked = new Set<string>();                // furniture (non-walkable)
 type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa' | 'arcade' | 'vending' | 'chair';
@@ -85,6 +87,8 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
         wallCollide.add(key(x, y));
         if (y === y0 && x < x1) wallDrawN.add(key(x, y));   // north run (skip the shared corner)
         if (x === x0 && y < y1) wallDrawW.add(key(x, y));   // west run
+        if (y === y1 && x > x0) wallDrawS.add(key(x, y));   // south run (short front)
+        if (x === x1 && y > y0) wallDrawE.add(key(x, y));   // east run  (short front)
       } else {
         interiorOf.set(key(x, y), r);
       }
@@ -181,20 +185,21 @@ function floorColor(x: number, y: number): number {
   return (x + y) % 2 ? mixHex(accent, 0x141414, 0.5) : mixHex(accent, 0x141414, 0.58);
 }
 
-// A solid but THIN back wall (only the room's two back edges are drawn → open
-// box). north edge = the tile's top-right edge; west edge = top-left edge.
-// Panel + top trim + baseboard so it reads clearly as a wall.
-function drawWall(g: Graphics, x: number, y: number, north: boolean): void {
+// Thin walls on all 4 room edges. The two BACK edges (N/W) are tall; the two
+// FRONT edges (S/E) are short low walls (a murito) so the room reads enclosed on
+// 4 sides without hiding the interior — the trick the reference uses.
+const WALL_BASE = 0x424b68, WALL_TRIM = 0x646e92, WALL_FOOT = 0x2b3149;
+function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void {
   const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
-  const faceN = 0x424b68, faceW = shade(0x424b68, 0.8);
-  const trim = 0x646e92, base = 0x2b3149;
-  const [ax, ay, bx, by] = north
-    ? [p.x, p.y - TH2, p.x + TW2, p.y]        // top-right edge
-    : [p.x - TW2, p.y, p.x, p.y - TH2];       // top-left edge
-  const face = north ? faceN : faceW;
-  g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by, ax, ay]).fill(face);              // full panel
-  g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by - WALL_H + 3, ax, ay - WALL_H + 3]).fill(trim); // top trim
-  g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(base, north ? 1 : 0.85)); // baseboard
+  const H = edge === 'N' || edge === 'W' ? WALL_H : 10; // front walls are low
+  let ax: number, ay: number, bx: number, by: number, f: number;
+  if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; f = WALL_BASE; }
+  else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; f = shade(WALL_BASE, 0.8); }
+  else if (edge === 'S') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y + TH2; f = shade(WALL_BASE, 0.68); }
+  else { ax = p.x; ay = p.y + TH2; bx = p.x + TW2; by = p.y; f = shade(WALL_BASE, 0.6); }
+  g.poly([ax, ay - H, bx, by - H, bx, by, ax, ay]).fill(f);                                    // panel
+  g.poly([ax, ay - H, bx, by - H, bx, by - H + 2, ax, ay - H + 2]).fill(WALL_TRIM);            // top trim
+  g.poly([ax, ay - 3, bx, by - 3, bx, by, ax, ay]).fill(shade(WALL_FOOT, edge === 'N' ? 1 : 0.85)); // baseboard
 }
 
 export interface DepthItem { g: Graphics; z: number; }
@@ -213,9 +218,14 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   // an agent behind a wall/shelf is occluded, in front it occludes. This is what
   // makes it read as 3D space instead of flat.
   const depthItems: DepthItem[] = [];
-  for (const k of wallDrawN) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, true); depthItems.push({ g, z: project(x, y).y }); }
-  for (const k of wallDrawW) { const [x, y] = k.split(',').map(Number); const g = new Graphics(); drawWall(g, x, y, false); depthItems.push({ g, z: project(x, y).y }); }
-  for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.5 }); }
+  const wallSets: [Set<string>, 'N' | 'W' | 'S' | 'E'][] = [[wallDrawN, 'N'], [wallDrawW, 'W'], [wallDrawS, 'S'], [wallDrawE, 'E']];
+  for (const [set, edge] of wallSets) for (const k of set) {
+    if (doorSet.has(k)) continue;                          // leave the doorway open
+    const [x, y] = k.split(',').map(Number);
+    const g = new Graphics(); drawWall(g, x, y, edge);
+    depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
+  }
+  for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.4 }); }
 
   // Labels always on top.
   const labels = new Container();
