@@ -8,7 +8,7 @@
 // seat inside their room when active and wait in the centre otherwise. Uses its
 // own synthetic grid (see isoSyntheticMap) so room sizes aren't capped by
 // office.tmj. ORIGINAL art. Painter's depth via per-piece zIndex.
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import { accentByName } from '@/design/tokens';
 import { DEPARTMENT_ACCENT, type Department } from '@/data/hermesRoster';
 import { Projection } from './projection';
@@ -99,7 +99,8 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
     const ix = r.ix, iy = r.iy;
     if (r.name === 'waiting') {
       for (let dx = 0; dx < r.iw; dx += 2) addPiece(ix + dx, iy, 'bench');
-      for (let dy = 2; dy < r.ih; dy++) for (let dx = 0; dx < r.iw; dx++) waitingSpots.push({ x: ix + dx, y: iy + dy });
+      // spaced spots (every other tile) so waiting agents don't pile up
+      for (let dy = 2; dy < r.ih; dy += 2) for (let dx = 0; dx < r.iw; dx += 2) waitingSpots.push({ x: ix + dx, y: iy + dy });
       godSeat = { x: ix + Math.floor(r.iw / 2), y: iy + r.ih - 1 };
     } else if (r.name === 'lounge') {
       addPiece(ix + 2, iy + 1, 'pool'); addPiece(ix + 2, iy + 2, 'pool', false);
@@ -171,20 +172,20 @@ function floorColor(x: number, y: number): number {
   return (x + y) % 2 ? mixHex(accent, 0x141414, 0.5) : mixHex(accent, 0x141414, 0.58);
 }
 
-// a THIN wall segment (only back walls are drawn → open-box rooms)
+// A solid but THIN back wall (only the room's two back edges are drawn → open
+// box). north edge = the tile's top-right edge; west edge = top-left edge.
+// Panel + top trim + baseboard so it reads clearly as a wall.
 function drawWall(g: Graphics, x: number, y: number, north: boolean): void {
-  const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2, th = 4; // th = visual thickness
-  const face = 0x39415a, side = shade(0x39415a, 0.74), rim = 0x5a6284;
-  if (north) { // runs along +x (down-right): a thin raised bar on the tile's back edge
-    const ax = p.x, ay = p.y - TH2, bx = p.x + TW2, by = p.y;
-    g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by - WALL_H + th, ax, ay - WALL_H + th]).fill(rim);
-    g.poly([ax, ay - WALL_H + th, bx, by - WALL_H + th, bx, by, ax, ay]).fill(face);
-    g.poly([ax, ay - WALL_H, ax, ay, ax - 0, ay]).fill(side);
-  } else { // west wall runs along +y (down-left)
-    const ax = p.x - TW2, ay = p.y, bx = p.x, by = p.y - TH2;
-    g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by - WALL_H + th, ax, ay - WALL_H + th]).fill(rim);
-    g.poly([ax, ay - WALL_H + th, bx, by - WALL_H + th, bx, by, ax, ay]).fill(side);
-  }
+  const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
+  const faceN = 0x424b68, faceW = shade(0x424b68, 0.8);
+  const trim = 0x646e92, base = 0x2b3149;
+  const [ax, ay, bx, by] = north
+    ? [p.x, p.y - TH2, p.x + TW2, p.y]        // top-right edge
+    : [p.x - TW2, p.y, p.x, p.y - TH2];       // top-left edge
+  const face = north ? faceN : faceW;
+  g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by, ax, ay]).fill(face);              // full panel
+  g.poly([ax, ay - WALL_H, bx, by - WALL_H, bx, by - WALL_H + 3, ax, ay - WALL_H + 3]).fill(trim); // top trim
+  g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(base, north ? 1 : 0.85)); // baseboard
 }
 
 export function buildIsoRooms(): { container: Container; seatsByDept: Map<Department, Tile[]>; godSeat: Tile; worldW: number; worldH: number } {
@@ -210,6 +211,17 @@ export function buildIsoRooms(): { container: Container; seatsByDept: Map<Depart
   const fg = new Graphics(); fg.zIndex = 5e5;
   for (const p of pieces) drawPiece(fg, p);
   container.addChild(fg);
+
+  // room labels (hover above each room's back corner)
+  for (const r of rooms) {
+    const label = r.name === 'waiting' ? 'SALA DE ESPERA' : r.name === 'lounge' ? 'LOUNGE' : r.name.toUpperCase();
+    const p = project(r.ix + r.iw / 2, r.iy);
+    const t = new Text({ text: label, style: { fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold', fill: 0xf2eedd, stroke: { color: 0x1a1d29, width: 3 } } });
+    t.anchor.set(0.5, 1);
+    t.position.set(p.x, p.y - WALL_H - 3);
+    t.zIndex = 9e6;
+    container.addChild(t);
+  }
 
   const bottom = project(ISO_GW, ISO_GH);
   return { container, seatsByDept, godSeat, worldW: ORIGIN_X + ISO_GW * (TW / 2) + 20, worldH: bottom.y + 40 };
