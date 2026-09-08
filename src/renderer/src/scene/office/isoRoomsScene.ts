@@ -15,7 +15,7 @@ import { Projection } from './projection';
 
 export interface Tile { x: number; y: number; }
 
-const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 3;
+const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 2;   // tighter corridors → compact plan
 
 type RoomName = Department | 'lounge' | 'waiting';
 interface RoomDef { name: RoomName; n: number; iw: number; ih: number; ix: number; iy: number; }
@@ -181,9 +181,22 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
   }
 }
 
+// wall decor (drawn on the tall back-wall face, screen-space)
+function wallPicture(g: Graphics, sx: number, sy: number, c: number): void {
+  g.rect(sx - 7, sy - 6, 14, 12).fill(0x241f1a);          // frame
+  g.rect(sx - 6, sy - 5, 12, 10).fill(c);
+  g.rect(sx - 6, sy, 12, 5).fill(shade(c, 0.68));         // a simple horizon
+}
+function wallClock(g: Graphics, sx: number, sy: number): void {
+  g.circle(sx, sy, 5).fill(0x20242c);
+  g.circle(sx, sy, 4).fill(0xececef);
+  g.rect(sx, sy - 3, 1, 3).fill(0x20242c);
+  g.rect(sx, sy, 3, 1).fill(0x20242c);
+}
+
 function floorColor(x: number, y: number): number {
   const r = roomFloorOf.get(key(x, y));
-  if (!r) return (x + y) % 2 ? 0x2f3442 : 0x282c38;              // corridor
+  if (!r) return (x + y) % 2 ? 0x565d70 : 0x4e5466; // corridor (lighter hallway, so rooms aren't islands in black)
   if (r.name === 'waiting') return (x + y) % 2 ? 0x6a6152 : 0x5f5748;
   if (r.name === 'lounge') return (x + y) % 2 ? 0x5a3550 : 0x4e2e46;
   const accent = accentByName[DEPARTMENT_ACCENT[r.name]];
@@ -199,7 +212,7 @@ const WALL_BASE = 0x4a5578, WALL_TOP = 0x6b79a4, WALL_FOOT = 0x2b3149;
 // line. Back walls (N/W) tall; front walls (S/E) low muritos.
 function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void {
   const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
-  const H = edge === 'N' || edge === 'W' ? WALL_H : 14;
+  const H = edge === 'N' || edge === 'W' ? WALL_H : 18;
   let ax: number, ay: number, bx: number, by: number, inx: number, iny: number, f: number;
   if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = 3; f = WALL_BASE; }
   else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; inx = 7; iny = 3; f = shade(WALL_BASE, 0.82); }
@@ -216,8 +229,9 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   const floorC = new Container();
   const floor = new Graphics();
   for (let ty = 0; ty < ISO_GH; ty++) for (let tx = 0; tx < ISO_GW; tx++) {
-    const p = project(tx, ty);
-    diamond(floor, p.x, p.y, TW / 2, TH / 2, floorColor(tx, ty));
+    const p = project(tx, ty), c = floorColor(tx, ty);
+    diamond(floor, p.x, p.y, TW / 2, TH / 2, shade(c, 0.86)); // grout
+    diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, c);      // tile face → subtle tiled texture
   }
   floorC.addChild(floor);
 
@@ -234,6 +248,16 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
     depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
   }
   for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.4 }); }
+
+  // wall decor on the tall back walls: a framed picture (north) + a clock (west)
+  for (const r of rooms) {
+    if (r.name === 'waiting') continue;
+    const x0 = r.ix - 1, y0 = r.iy - 1;
+    const accent = r.name === 'lounge' ? 0x7a4a86 : accentByName[DEPARTMENT_ACCENT[r.name]];
+    const midx = r.ix + Math.floor(r.iw / 2), midy = r.iy + Math.floor(r.ih / 2);
+    const np = project(midx, y0); const gp = new Graphics(); wallPicture(gp, np.x, np.y - WALL_H * 0.55, accent); depthItems.push({ g: gp, z: np.y + 0.2 });
+    const wp = project(x0, midy); const gc = new Graphics(); wallClock(gc, wp.x, wp.y - WALL_H * 0.55); depthItems.push({ g: gc, z: wp.y + 0.2 });
+  }
 
   // Labels always on top.
   const labels = new Container();
