@@ -62,6 +62,7 @@ const project = (tx: number, ty: number): { x: number; y: number } => ({ x: ORIG
 
 // ── per-tile classification (interior / wall / door) computed once ───────────
 const interiorOf = new Map<string, RoomDef>();   // tile -> room whose interior it is
+const roomFloorOf = new Map<string, RoomDef>();  // tile -> room, incl. border tiles under the walls (so floor meets walls)
 const wallCollide = new Set<string>();            // all room-border tiles (non-walkable)
 const wallDrawN = new Set<string>();              // north-border (tall back wall)
 const wallDrawW = new Set<string>();              // west-border  (tall back wall)
@@ -83,6 +84,7 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
     const x0 = r.ix - 1, y0 = r.iy - 1, x1 = r.ix + r.iw, y1 = r.iy + r.ih; // border coords
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const border = x === x0 || x === x1 || y === y0 || y === y1;
+      roomFloorOf.set(key(x, y), r); // whole room rect (incl. walls) gets the room floor
       if (border) {
         wallCollide.add(key(x, y));
         if (y === y0 && x < x1) wallDrawN.add(key(x, y));   // north run (skip the shared corner)
@@ -177,7 +179,7 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
 }
 
 function floorColor(x: number, y: number): number {
-  const r = interiorOf.get(key(x, y));
+  const r = roomFloorOf.get(key(x, y));
   if (!r) return (x + y) % 2 ? 0x2f3442 : 0x282c38;              // corridor
   if (r.name === 'waiting') return (x + y) % 2 ? 0x6a6152 : 0x5f5748;
   if (r.name === 'lounge') return (x + y) % 2 ? 0x5a3550 : 0x4e2e46;
@@ -191,7 +193,7 @@ function floorColor(x: number, y: number): number {
 const WALL_BASE = 0x424b68, WALL_TRIM = 0x646e92, WALL_FOOT = 0x2b3149;
 function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void {
   const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
-  const H = edge === 'N' || edge === 'W' ? WALL_H : 10; // front walls are low
+  const H = edge === 'N' || edge === 'W' ? WALL_H : 14; // front walls are low (murito)
   let ax: number, ay: number, bx: number, by: number, f: number;
   if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; f = WALL_BASE; }
   else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; f = shade(WALL_BASE, 0.8); }
