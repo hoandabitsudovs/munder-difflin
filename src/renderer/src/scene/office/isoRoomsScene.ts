@@ -70,7 +70,7 @@ const wallDrawS = new Set<string>();              // south-border (short front w
 const wallDrawE = new Set<string>();              // east-border  (short front wall)
 const doorSet = new Set<string>();
 const blocked = new Set<string>();                // furniture (non-walkable)
-type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa' | 'arcade' | 'vending' | 'chair';
+type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa' | 'arcade' | 'vending' | 'chair' | 'cabinet' | 'cooler';
 const pieces: { x: number; y: number; kind: Kind }[] = [];
 const seatsByDept = new Map<Department, Tile[]>();
 const waitingSpots: Tile[] = [];
@@ -126,6 +126,10 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
       }
       addPiece(ix + r.iw - 1, iy, 'bookshelf');
       addPiece(ix + r.iw - 1, iy + r.ih - 1, 'plant');
+      // extra furnishings so department rooms feel lived-in (like the reference)
+      addPiece(ix, iy, 'cabinet');                          // back-left filing cabinet
+      addPiece(ix, iy + r.ih - 1, 'cooler');                // water cooler (front-left)
+      if (r.iw >= 6) addPiece(ix + r.iw - 1, iy + 1, 'plant'); // a second plant in bigger rooms
       seatsByDept.set(r.name, seats);
     }
   }
@@ -180,6 +184,8 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
     case 'arcade': { const c = 0x3a2a66; prism(g, x, y, 7, 5, 26, shade(c, 1.15), shade(c, 0.72), shade(c, 0.5)); g.rect(x - 4, y - 24, 8, 4).fill(0xe24a7a); g.rect(x - 4, y - 20, 8, 6).fill(0x28c8dc); g.rect(x - 3, y - 12, 8, 3).fill(0x1a1a24); g.circle(x - 1, y - 10, 1).fill(0xe6d23c); break; }
     case 'vending': { const c = 0xb03a3a; prism(g, x, y, 7, 5, 24, shade(c, 1.08), shade(c, 0.72), shade(c, 0.5)); g.rect(x - 4, y - 22, 8, 14).fill(0x1e2836); const it = [0xf0d24a, 0x5aaad2, 0xe6785a]; for (let r = 0; r < 3; r++) for (let cc = 0; cc < 3; cc++) g.rect(x - 3 + cc * 3, y - 20 + r * 4, 2, 2).fill(it[(r + cc) % 3]); break; }
     case 'chair': { const c = 0x50845e; prism(g, x, y, 4, 3, 6, shade(c, 1.1), shade(c, 0.7), shade(c, 0.55)); g.rect(x - 3, y - 12, 6, 5).fill(shade(c, 0.8)); break; }
+    case 'cabinet': { const c = 0x6f7784; prism(g, x, y, 10, 6, 20, shade(c, 1.08), shade(c, 0.72), shade(c, 0.55)); for (const yy of [-4, -10, -16]) g.rect(x - 5, y + yy, 10, 1).fill(shade(c, 0.45)); g.rect(x - 1, y - 12, 2, 1).fill(0xcfd6e0); break; }
+    case 'cooler': { const c = 0xdfe6ec; prism(g, x, y, 5, 3, 12, c, shade(c, 0.78), shade(c, 0.62)); diamond(g, x, y - 14, 8, 5, 0x66b8e0); g.rect(x - 2, y - 5, 4, 3).fill(0x4a90c0); break; }
   }
 }
 
@@ -225,6 +231,12 @@ function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'
   g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(WALL_TOP);    // top cap (thickness)
 }
 
+// a vertical corner post that plugs the junction where two walls meet
+function drawCornerPost(g: Graphics, sx: number, sy: number, H: number): void {
+  g.poly([sx - 3, sy, sx + 3, sy, sx + 3, sy - H, sx - 3, sy - H]).fill(WALL_BASE);
+  g.poly([sx - 3, sy - H, sx + 3, sy - H, sx + 3, sy - H + 3, sx - 3, sy - H + 3]).fill(WALL_TOP);
+}
+
 export interface DepthItem { g: Graphics; z: number; }
 export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; labels: Container; seatsByDept: Map<Department, Tile[]>; godSeat: Tile; worldW: number; worldH: number } {
   // Floor stays behind everything.
@@ -249,6 +261,19 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
     const g = new Graphics(); drawWall(g, x, y, edge);
     depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
   }
+  // corner posts plug every wall junction so corners always read as joined
+  for (const r of rooms) {
+    const x0 = r.ix - 1, y0 = r.iy - 1, x1 = r.ix + r.iw, y1 = r.iy + r.ih;
+    const bk = project(x0, y0), rt = project(x1, y0), lf = project(x0, y1), fr = project(x1, y1);
+    const posts: [number, number, number][] = [
+      [bk.x, bk.y - TH / 2, WALL_H],          // back corner (tall)
+      [rt.x + TW / 2, rt.y, WALL_H],          // right corner (tall N)
+      [lf.x - TW / 2, lf.y, WALL_H],          // left corner (tall W)
+      [fr.x, fr.y + TH / 2, 18],              // front corner (low)
+    ];
+    for (const [sx, sy, h] of posts) { const g = new Graphics(); drawCornerPost(g, sx, sy, h); depthItems.push({ g, z: sy + 0.3 }); }
+  }
+
   for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.4 }); }
 
   // wall decor on the tall back walls: a framed picture (north) + a clock (west)

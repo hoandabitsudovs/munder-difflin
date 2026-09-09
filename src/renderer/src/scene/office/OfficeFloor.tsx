@@ -1136,7 +1136,7 @@ export function OfficeFloor() {
         if (god) st.select(god.id);
         st.requestCommandCenterTab('tasks');
       });
-      charLayer.addChild(boardG);
+      if (!isoRooms) charLayer.addChild(boardG); // ortho task board — hidden in iso
       // One small Graphics per desk currently holding a taken note.
       const deskNoteG = new Map<string, Graphics>();
       const clearDeskNotes = (): void => {
@@ -1184,7 +1184,7 @@ export function OfficeFloor() {
             g.eventMode = 'none';
             g.position.set((desk.x - 1) * tsB + 3, (desk.y - 1) * tsB + 8);
             g.zIndex = desk.y * tsB - 1;
-            charLayer.addChild(g);
+            if (!isoRooms) charLayer.addChild(g); // ortho desk note — hidden in iso
             deskNoteG.set(t.assignee!, g);
           }
           // stack multiple taken notes side by side on the same desk
@@ -1225,7 +1225,7 @@ export function OfficeFloor() {
         ev.stopPropagation();
         window.close(); // intercepted by the main process while PTYs are alive
       });
-      charLayer.addChild(clockG);
+      if (!isoRooms) charLayer.addChild(clockG); // ortho wall clock — hidden in iso
 
       // ─── The ASK ME board: tasks waiting on the HUMAN, first class ─────────
       // Hangs on the right wall run (between the second doorway and the war
@@ -1245,7 +1245,7 @@ export function OfficeFloor() {
         if (god) st.select(god.id);
         st.requestCommandCenterTab('human');
       });
-      charLayer.addChild(askG);
+      if (!isoRooms) charLayer.addChild(askG); // ortho ASK-ME board (the "?") — hidden in iso
       let askCount = 0;
       let askPulse = 0;
       const drawAskBoard = (pulse: number): void => {
