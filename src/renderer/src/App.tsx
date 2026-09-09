@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore, selectedAgent } from '@/store/store';
 import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
+import { startIsoDemoLoop, stopIsoDemoLoop } from '@/store/isoDemo';
 import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
 import { OfficeFloor } from '@/scene/office/OfficeFloor';
@@ -196,7 +197,20 @@ export function App() {
 
   // The 17-agent Hermes department roster, driven by a real 5s poll of
   // ~/.hermes/kanban.db (read-only) — independent of the hive/PTY system above.
-  useHermesPoll(Boolean(config?.onboardingComplete));
+  // Suspended while the iso demo runs, so the demo owns the roster's statuses
+  // instead of the poll resetting them to the (idle) live board every 5s.
+  const ISO_DEMO = import.meta.env.DEV && import.meta.env.VITE_CTH_ISO_DEMO === '1';
+  useHermesPoll(Boolean(config?.onboardingComplete) && !ISO_DEMO);
+
+  // Iso office demo — CAGED like the mock loop: dev-only, explicit opt-in
+  // (VITE_CTH_ISO_DEMO=1). Cycles the department roster working↔idle so the
+  // agents walk to their rooms and back, giving the floor life without a live
+  // hive. See src/store/isoDemo.ts.
+  useEffect(() => {
+    if (!config?.onboardingComplete || !ISO_DEMO) return;
+    startIsoDemoLoop();
+    return () => stopIsoDemoLoop();
+  }, [config?.onboardingComplete, ISO_DEMO]);
 
   // Pre-warm a persistent terminal for every live agent so its output is
   // buffered from spawn. Switching agents then re-attaches an already-rendered
