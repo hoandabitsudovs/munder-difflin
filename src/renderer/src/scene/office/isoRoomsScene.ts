@@ -15,7 +15,7 @@ import { Projection } from './projection';
 
 export interface Tile { x: number; y: number; }
 
-const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 1;   // 1-tile corridors → compact, connected plan
+const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 2;   // 2-tile corridors, clearly readable as hallways
 
 type RoomName = Department | 'lounge' | 'waiting';
 interface RoomDef { name: RoomName; n: number; iw: number; ih: number; ix: number; iy: number; }
@@ -24,7 +24,7 @@ interface RoomDef { name: RoomName; n: number; iw: number; ih: number; ix: numbe
 const DEPT_N: Record<Department, number> = {
   'Dirección': 2, 'Desarrollo': 3, 'Creativo': 3, 'Marketing': 3, 'Finanzas': 2, 'Redacción': 3, 'Ciberseguridad': 1,
 };
-const sizeFor = (n: number): { iw: number; ih: number } => (n >= 3 ? { iw: 8, ih: 5 } : n === 2 ? { iw: 6, ih: 4 } : { iw: 5, ih: 4 });
+const sizeFor = (n: number): { iw: number; ih: number } => (n >= 3 ? { iw: 9, ih: 6 } : n === 2 ? { iw: 7, ih: 5 } : { iw: 6, ih: 5 });
 
 // ── place rooms: two department rows around a big central waiting room ───────
 const rooms: RoomDef[] = [];
@@ -33,7 +33,7 @@ const rooms: RoomDef[] = [];
   const bottom: RoomName[] = ['Finanzas', 'Redacción', 'Ciberseguridad', 'lounge'];
   const mk = (name: RoomName): RoomDef => {
     const n = name === 'lounge' ? 3 : name === 'waiting' ? 0 : DEPT_N[name];
-    const s = name === 'lounge' ? { iw: 8, ih: 5 } : sizeFor(n);
+    const s = name === 'lounge' ? { iw: 9, ih: 6 } : sizeFor(n);
     return { name, n: name === 'waiting' || name === 'lounge' ? 0 : n, iw: s.iw, ih: s.ih, ix: 0, iy: 0 };
   };
   const placeRow = (names: RoomName[], oy: number): RoomDef[] => {
@@ -43,7 +43,7 @@ const rooms: RoomDef[] = [];
   };
   const topRow = placeRow(top, 1);
   const topH = Math.max(...topRow.map((r) => r.ih)) + 2;
-  const waiting: RoomDef = { name: 'waiting', n: 0, iw: 18, ih: 12, ix: 0, iy: 1 + topH + CORR + 1 };
+  const waiting: RoomDef = { name: 'waiting', n: 0, iw: 20, ih: 14, ix: 0, iy: 1 + topH + CORR + 1 };
   const bottomRow = placeRow(bottom, waiting.iy - 1 + waiting.ih + 2 + CORR);
   // centre the waiting room under the widest row
   const rowRight = (row: RoomDef[]): number => { const last = row[row.length - 1]; return last.ix + last.iw + 1; };
@@ -204,7 +204,7 @@ function wallClock(g: Graphics, sx: number, sy: number): void {
 
 function floorColor(x: number, y: number): number {
   const r = roomFloorOf.get(key(x, y));
-  if (!r) return (x + y) % 2 ? 0x565d70 : 0x4e5466; // corridor (lighter hallway, so rooms aren't islands in black)
+  if (!r) return (x + y) % 2 ? 0x9ea6b8 : 0x8f97a9; // corridor: light hallway tile (clearly distinct from rooms)
   if (r.name === 'waiting') return (x + y) % 2 ? 0x6a6152 : 0x5f5748;
   if (r.name === 'lounge') return (x + y) % 2 ? 0x5a3550 : 0x4e2e46;
   const accent = accentByName[DEPARTMENT_ACCENT[r.name]];
@@ -214,7 +214,7 @@ function floorColor(x: number, y: number): number {
 // Thin walls on all 4 room edges. The two BACK edges (N/W) are tall; the two
 // FRONT edges (S/E) are short low walls (a murito) so the room reads enclosed on
 // 4 sides without hiding the interior — the trick the reference uses.
-const WALL_BASE = 0x4a5578, WALL_TOP = 0x6b79a4, WALL_FOOT = 0x2b3149;
+const WALL_BASE = 0xccd0da, WALL_TOP = 0xe7eaf1, WALL_FOOT = 0x9298a8; // light office walls
 // Wall with real thickness: a face + a lighter TOP CAP (the slab's top surface),
 // plus a baseboard. The cap is what makes it read as a solid 3D wall, not a flat
 // line. Back walls (N/W) tall; front walls (S/E) low muritos.
