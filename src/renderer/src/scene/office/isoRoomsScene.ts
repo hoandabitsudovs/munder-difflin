@@ -90,10 +90,12 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
         // tall back walls (top + left) run corner-to-corner and MEET at the back
         // corner; low front walls (bottom + right) fill the rest — every corner
         // is covered so walls join with no gaps.
-        if (y === y0) wallDrawN.add(key(x, y));                       // full tall top
-        if (x === x0 && y > y0) wallDrawW.add(key(x, y));             // tall left
-        if (y === y1 && x > x0) wallDrawS.add(key(x, y));             // low bottom
-        if (x === x1 && y > y0 && y < y1) wallDrawE.add(key(x, y));   // low right
+        // draw every edge on every border tile — corner tiles get BOTH their
+        // edges, so the walls actually meet at all four corners (no gaps).
+        if (y === y0) wallDrawN.add(key(x, y));   // top    (tall)
+        if (x === x0) wallDrawW.add(key(x, y));   // left   (tall)
+        if (y === y1) wallDrawS.add(key(x, y));   // bottom (low)
+        if (x === x1) wallDrawE.add(key(x, y));   // right  (low)
       } else {
         interiorOf.set(key(x, y), r);
       }
