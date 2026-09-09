@@ -174,7 +174,11 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
     case 'sofa': { const c = 0x8c4450; prism(g, x, y, 14, 7, 8, shade(c, 1.1), shade(c, 0.72), shade(c, 0.55)); g.rect(x - 14, y - 22, 28, 12).fill(shade(c, 0.82)); g.rect(x - 13, y - 9, 8, 3).fill(shade(c, 1.15)); g.rect(x - 3, y - 9, 8, 3).fill(shade(c, 1.15)); break; }
     case 'arcade': { const c = 0x3a2a66; prism(g, x, y, 7, 5, 26, shade(c, 1.15), shade(c, 0.72), shade(c, 0.5)); g.rect(x - 4, y - 24, 8, 4).fill(0xe24a7a); g.rect(x - 4, y - 20, 8, 6).fill(0x28c8dc); g.rect(x - 3, y - 12, 8, 3).fill(0x1a1a24); g.circle(x - 1, y - 10, 1).fill(0xe6d23c); break; }
     case 'vending': { const c = 0xb03a3a; prism(g, x, y, 7, 5, 24, shade(c, 1.08), shade(c, 0.72), shade(c, 0.5)); g.rect(x - 4, y - 22, 8, 14).fill(0x1e2836); const it = [0xf0d24a, 0x5aaad2, 0xe6785a]; for (let r = 0; r < 3; r++) for (let cc = 0; cc < 3; cc++) g.rect(x - 3 + cc * 3, y - 20 + r * 4, 2, 2).fill(it[(r + cc) % 3]); break; }
-    case 'chair': { const c = 0x50845e; prism(g, x, y, 4, 3, 6, shade(c, 1.1), shade(c, 0.7), shade(c, 0.55)); g.rect(x - 3, y - 12, 6, 5).fill(shade(c, 0.8)); break; }
+    case 'chair': { const c = 0x3a4152; // dark office chair with a tall back
+      prism(g, x, y, 5, 3, 5, shade(c, 1.2), shade(c, 0.74), shade(c, 0.56));   // seat
+      g.rect(x - 4, y - 23, 8, 14).fill(shade(c, 1.0));                          // tall backrest (peeks behind the seated agent)
+      g.rect(x - 4, y - 23, 8, 2).fill(shade(c, 1.35));                          // headrest highlight
+      break; }
     case 'cabinet': { const c = 0x6f7784; prism(g, x, y, 10, 6, 20, shade(c, 1.08), shade(c, 0.72), shade(c, 0.55)); for (const yy of [-4, -10, -16]) g.rect(x - 5, y + yy, 10, 1).fill(shade(c, 0.45)); g.rect(x - 1, y - 12, 2, 1).fill(0xcfd6e0); break; }
     case 'cooler': { const c = 0xdfe6ec; prism(g, x, y, 5, 3, 12, c, shade(c, 0.78), shade(c, 0.62)); diamond(g, x, y - 14, 8, 5, 0x66b8e0); g.rect(x - 2, y - 5, 4, 3).fill(0x4a90c0); break; }
   }
@@ -257,6 +261,15 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
     const g = new Graphics(); drawWall(g, x, y, edge);
     depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
   }
+
+  // OUTER perimeter wall: encloses the whole floor so it reads as a building,
+  // not rooms floating on an endless grey plaza.
+  const outer = (x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void => {
+    const g = new Graphics(); drawWall(g, x, y, edge);
+    depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
+  };
+  for (let x = 0; x < ISO_GW; x++) { outer(x, 0, 'N'); outer(x, ISO_GH - 1, 'S'); }
+  for (let y = 0; y < ISO_GH; y++) { outer(0, y, 'W'); outer(ISO_GW - 1, y, 'E'); }
   // corner posts plug every wall junction so corners always read as joined
   for (const r of rooms) {
     const x0 = r.ix - 1, y0 = r.iy - 1, x1 = r.ix + r.iw, y1 = r.iy + r.ih;

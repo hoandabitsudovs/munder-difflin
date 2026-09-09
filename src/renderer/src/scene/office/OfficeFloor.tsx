@@ -318,7 +318,7 @@ export function OfficeFloor() {
       const camera = new Camera(world);
       if (isoRooms) {
         camera.setMapSize(isoRooms.worldW, isoRooms.worldH);
-        camera.setFitBoost(1.85); // fill the viewport (crop the empty iso corners)
+        camera.setFitBoost(1.1); // show the whole enclosed building
       } else {
         camera.setMapSize(mapRenderer.width * mapRenderer.tileSize, mapRenderer.height * mapRenderer.tileSize);
       }
