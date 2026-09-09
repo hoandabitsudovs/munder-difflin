@@ -247,6 +247,19 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
       floor.rect(p.x - 2, p.y - 1, 4, 2).fill(shade(c, 1.08));
     }
   }
+  // ── ambient lighting: warm wash inside rooms (vs. cool corridors) + a soft
+  // shadow (AO) along the walls, so the floor doesn't read as flat and even.
+  for (const r of rooms) {
+    const p = project(r.ix + (r.iw - 1) / 2, r.iy + (r.ih - 1) / 2);
+    diamond(floor, p.x, p.y - 1, r.iw * TW / 2 * 0.9, r.ih * TH / 2 * 0.9, 0xffdf9c, 0.10);
+    diamond(floor, p.x, p.y - 1, r.iw * TW / 2 * 0.5, r.ih * TH / 2 * 0.5, 0xfff1cc, 0.12);
+    for (let dy = 0; dy < r.ih; dy++) for (let dx = 0; dx < r.iw; dx++) {
+      if (dx === 0 || dy === 0 || dx === r.iw - 1 || dy === r.ih - 1) {
+        const q = project(r.ix + dx, r.iy + dy);
+        diamond(floor, q.x, q.y, TW / 2 - 1, TH / 2 - 1, 0x0a0a16, 0.18); // wall shadow
+      }
+    }
+  }
   floorC.addChild(floor);
 
   // Walls + furniture become individually depth-keyed items so they INTERLEAVE
