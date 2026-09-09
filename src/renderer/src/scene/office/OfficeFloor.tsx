@@ -63,6 +63,8 @@ interface Runtime {
   waitTile: Tile;
   /** iso: where this agent waits (central sala de espera) until it is active */
   waitingSpot?: Tile;
+  /** iso: this agent's desk in its own department, walked to when it activates */
+  departmentSeat?: Tile;
   charName: string;
   prevStatus?: string;
   prevAction?: string;
@@ -1494,20 +1496,21 @@ export function OfficeFloor() {
           if (seatIndex != null) seatClaims.delete(seatIndex);
           return;
         }
+        // iso: the agent's HOME is its waiting-room chair; it walks to its
+        // department desk only when active. Non-iso: home is the department desk.
+        const isoHome = isoRooms ? (waitingSpot ?? seatTile) : seatTile;
         const character = new Character({
           agentId: agent.id,
           mapRenderer,
           frames,
-          seatTile,
-          seatDirection: facingForSeat(seatTile),
-          // iso rooms: agents start in the central waiting room (god at its post);
-          // top-down still walks in from the office door.
-          spawnTile: isoRooms ? (agent.isGod ? isoRooms.godSeat : (waitingSpot ?? seatTile)) : entrance,
+          seatTile: isoHome,
+          seatDirection: facingForSeat(isoHome),
+          spawnTile: isoRooms ? isoHome : entrance,
           glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
           onClick: (id) => useStore.getState().select(id),
         });
         character.show(charLayer);
-        const rt: Runtime = { character, seatIndex, waitTile, waitingSpot, charName };
+        const rt: Runtime = { character, seatIndex, waitTile, waitingSpot, departmentSeat: seatTile, charName };
         // Standard desks paint the 2×2 PC monitor two rows above the seat —
         // give those a DeskScreen (lights up while seated) and a cup spot
         // beside the monitor, exactly where the tileset's baked-in mug used
@@ -1617,10 +1620,12 @@ export function OfficeFloor() {
           // agents stay quiet so the waiting room isn't a wall of bubbles.
           const reallyWorking = s === 'working' || s === 'thinking' || s === 'compacting';
           if (active) {
-            c.sitAtDesk(reallyWorking);
+            if (rt.departmentSeat) c.setHome(rt.departmentSeat.x, rt.departmentSeat.y);
+            c.sitAtDesk(reallyWorking); // walk to the department desk (if away) and sit
             if (reallyWorking) c.showThought(liveActivity(agent), agent.carrying); else c.hideThought();
           } else {
-            if (rt.waitingSpot) c.walkToTile(rt.waitingSpot);
+            if (rt.waitingSpot) c.setHome(rt.waitingSpot.x, rt.waitingSpot.y);
+            c.sitAtDesk(false); // sit in the waiting-room chair (walks there if it came back)
             c.hideThought();
           }
           return;

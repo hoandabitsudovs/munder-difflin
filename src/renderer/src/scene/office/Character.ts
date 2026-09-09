@@ -332,6 +332,10 @@ export class Character {
     this.moveTo(tile);
   }
 
+  /** Change the home/seat tile WITHOUT teleporting — the agent walks there on the
+   *  next sitAtDesk (iso: switch between the waiting-room chair and the desk). */
+  setHome(tx: number, ty: number): void { this.deskTile = { x: tx, y: ty }; }
+
   repositionTo(tx: number, ty: number): void {
     this.deskTile = { x: tx, y: ty };
     const foot = this.mapRenderer.tileToFoot(tx, ty);

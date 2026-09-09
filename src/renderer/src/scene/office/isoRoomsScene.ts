@@ -109,9 +109,9 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
     // furniture + seats
     const ix = r.ix, iy = r.iy;
     if (r.name === 'waiting') {
-      for (let dx = 0; dx < r.iw; dx += 2) addPiece(ix + dx, iy, 'bench');
-      // spaced spots (every other tile) so waiting agents don't pile up
-      for (let dy = 2; dy < r.ih; dy += 2) for (let dx = 0; dx < r.iw; dx += 2) waitingSpots.push({ x: ix + dx, y: iy + dy });
+      // a tidy grid of chairs; one agent sits per chair (chairs drawn in buildIsoRooms)
+      const cols = [2, 6, 10, 14, 18], rows = [2, 5, 8, 11];
+      for (const dy of rows) for (const dx of cols) if (dx < r.iw && dy < r.ih) waitingSpots.push({ x: ix + dx, y: iy + dy });
       godSeat = { x: ix + Math.floor(r.iw / 2), y: iy + r.ih - 1 };
     } else if (r.name === 'lounge') {
       addPiece(ix + 2, iy + 1, 'pool'); addPiece(ix + 2, iy + 2, 'pool', false);
@@ -133,15 +133,6 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
       seatsByDept.set(r.name, seats);
     }
   }
-})();
-
-// spread waiting-room assignment so consecutive agents don't fill one diagonal
-// (deterministic interleave: large stride through the spaced spots)
-(function spreadWaiting(): void {
-  if (waitingSpots.length < 3) return;
-  const src = waitingSpots.slice(), out: Tile[] = [], stride = 5;
-  for (let i = 0, idx = 0; i < src.length; i++) { while (out.includes(src[idx % src.length])) idx++; out.push(src[idx % src.length]); idx += stride; }
-  waitingSpots.length = 0; waitingSpots.push(...out);
 })();
 
 export function isoRoomsProjection(): Projection {
@@ -280,6 +271,10 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   }
 
   for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.4 }); }
+
+  // a chair at every waiting-room spot, drawn BEHIND the agent (lower z) so the
+  // agent reads as sitting on it
+  for (const s of waitingSpots) { const g = new Graphics(); drawPiece(g, { x: s.x, y: s.y, kind: 'chair' }); depthItems.push({ g, z: project(s.x, s.y).y - 0.4 }); }
 
   // wall decor on the tall back walls: a framed picture (north) + a clock (west)
   for (const r of rooms) {
