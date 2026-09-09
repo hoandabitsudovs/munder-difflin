@@ -79,6 +79,22 @@ let godSeat: Tile = { x: 1, y: 1 };
 const key = (x: number, y: number): string => `${x},${y}`;
 const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pieces.push({ x, y, kind }); if (block) blocked.add(key(x, y)); };
 
+// Per-department decor so rooms don't all look identical. Each department gets
+// its own accessories in the 4 interior corners (BL/BR back, FL/FR front) plus
+// an optional wall clock — giving each room a distinct signature (Finanzas =
+// filing cabinets, Redacción = bookshelves, Creativo = plants, etc.).
+type Corner = 'BL' | 'BR' | 'FL' | 'FR';
+interface DeptDecor { corners: Partial<Record<Corner, Kind>>; clock?: boolean }
+const DEPT_DECOR: Record<Department, DeptDecor> = {
+  'Dirección':      { corners: { BL: 'sofa',      BR: 'bookshelf', FL: 'plant',   FR: 'plant'     }, clock: true },
+  'Desarrollo':     { corners: { BL: 'cabinet',   BR: 'bookshelf', FL: 'cooler',  FR: 'bookshelf' } },
+  'Creativo':       { corners: { BL: 'plant',     BR: 'plant',     FL: 'bench',   FR: 'plant'     } },
+  'Marketing':      { corners: { BL: 'cabinet',   BR: 'bookshelf', FL: 'plant',   FR: 'cooler'    }, clock: true },
+  'Finanzas':       { corners: { BL: 'cabinet',   BR: 'cabinet',   FL: 'cooler',  FR: 'plant'     } },
+  'Redacción':      { corners: { BL: 'bookshelf', BR: 'bookshelf', FL: 'cabinet', FR: 'plant'     }, clock: true },
+  'Ciberseguridad': { corners: { BL: 'cabinet',                                   FR: 'cooler'    } },
+};
+
 (function computeTiles(): void {
   for (const r of rooms) {
     const x0 = r.ix - 1, y0 = r.iy - 1, x1 = r.ix + r.iw, y1 = r.iy + r.ih; // border coords
@@ -124,12 +140,16 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
         addPiece(ix + dx, iy, 'desk');          // desk against the back wall
         seats.push({ x: ix + dx, y: iy + 1 });  // agent stands in front of the desk
       }
-      addPiece(ix + r.iw - 1, iy, 'bookshelf');
-      addPiece(ix + r.iw - 1, iy + r.ih - 1, 'plant');
-      // extra furnishings so department rooms feel lived-in (like the reference)
-      addPiece(ix, iy, 'cabinet');                          // back-left filing cabinet
-      addPiece(ix, iy + r.ih - 1, 'cooler');                // water cooler (front-left)
-      if (r.iw >= 6) addPiece(ix + r.iw - 1, iy + 1, 'plant'); // a second plant in bigger rooms
+      // per-department accessories in the 4 interior corners (see DEPT_DECOR) so
+      // each room reads distinct instead of every room sharing one layout
+      const corner: Record<Corner, Tile> = {
+        BL: { x: ix, y: iy }, BR: { x: ix + r.iw - 1, y: iy },
+        FL: { x: ix, y: iy + r.ih - 1 }, FR: { x: ix + r.iw - 1, y: iy + r.ih - 1 },
+      };
+      const decor = DEPT_DECOR[r.name as Department];
+      for (const [c, kind] of Object.entries(decor.corners) as [Corner, Kind][]) {
+        addPiece(corner[c].x, corner[c].y, kind);
+      }
       seatsByDept.set(r.name, seats);
     }
   }
@@ -185,11 +205,6 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
 }
 
 // wall decor (drawn on the tall back-wall face, screen-space)
-function wallPicture(g: Graphics, sx: number, sy: number, c: number): void {
-  g.rect(sx - 7, sy - 6, 14, 12).fill(0x241f1a);          // frame
-  g.rect(sx - 6, sy - 5, 12, 10).fill(c);
-  g.rect(sx - 6, sy, 12, 5).fill(shade(c, 0.68));         // a simple horizon
-}
 function wallClock(g: Graphics, sx: number, sy: number): void {
   g.circle(sx, sy, 5).fill(0x20242c);
   g.circle(sx, sy, 4).fill(0xececef);
@@ -226,10 +241,16 @@ function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'
   g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(WALL_TOP);    // top cap (thickness)
 }
 
-// a vertical corner post that plugs the junction where two walls meet
+// a vertical corner column that plugs the junction where two walls meet. Wider
+// than a wall's thickness with a two-tone body + a diamond top cap, so it reads
+// as a solid post and fully covers the seam (drawn with a z IN FRONT of the two
+// walls it joins — see the posts loop — otherwise the walls hide it and the
+// corner looks open).
 function drawCornerPost(g: Graphics, sx: number, sy: number, H: number): void {
-  g.poly([sx - 3, sy, sx + 3, sy, sx + 3, sy - H, sx - 3, sy - H]).fill(WALL_BASE);
-  g.poly([sx - 3, sy - H, sx + 3, sy - H, sx + 3, sy - H + 3, sx - 3, sy - H + 3]).fill(WALL_TOP);
+  const hw = 4;
+  g.poly([sx - hw, sy, sx, sy, sx, sy - H, sx - hw, sy - H]).fill(shade(WALL_BASE, 0.8)); // left face (shaded)
+  g.poly([sx, sy, sx + hw, sy, sx + hw, sy - H, sx, sy - H]).fill(WALL_BASE);             // right face (lit)
+  diamond(g, sx, sy - H, hw, 3, WALL_TOP);                                                // diamond top cap
 }
 
 export interface DepthItem { g: Graphics; z: number; }
@@ -283,17 +304,28 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   };
   for (let x = 0; x < ISO_GW; x++) { outer(x, 0, 'N'); outer(x, ISO_GH - 1, 'S'); }
   for (let y = 0; y < ISO_GH; y++) { outer(0, y, 'W'); outer(ISO_GW - 1, y, 'E'); }
-  // corner posts plug every wall junction so corners always read as joined
+  // corner posts plug every wall junction so corners always read as joined. Each
+  // post's z is the corner tile's own baseline + 4, so it paints IN FRONT of the
+  // two walls meeting there and actually covers the seam (with a low z it hid
+  // behind the wall and the corner looked open).
+  const addPost = (sx: number, sy: number, h: number, zBaseY: number): void => {
+    const g = new Graphics(); drawCornerPost(g, sx, sy, h); depthItems.push({ g, z: zBaseY + 4 });
+  };
   for (const r of rooms) {
     const x0 = r.ix - 1, y0 = r.iy - 1, x1 = r.ix + r.iw, y1 = r.iy + r.ih;
     const bk = project(x0, y0), rt = project(x1, y0), lf = project(x0, y1), fr = project(x1, y1);
-    const posts: [number, number, number][] = [
-      [bk.x, bk.y - TH / 2, WALL_H],          // back corner (tall)
-      [rt.x + TW / 2, rt.y, WALL_H],          // right corner (tall N)
-      [lf.x - TW / 2, lf.y, WALL_H],          // left corner (tall W)
-      [fr.x, fr.y + TH / 2, 18],              // front corner (low)
-    ];
-    for (const [sx, sy, h] of posts) { const g = new Graphics(); drawCornerPost(g, sx, sy, h); depthItems.push({ g, z: sy + 0.3 }); }
+    addPost(bk.x, bk.y - TH / 2, WALL_H, bk.y);   // back corner  (tall)
+    addPost(rt.x + TW / 2, rt.y, WALL_H, rt.y);   // right corner (tall N∩low E)
+    addPost(lf.x - TW / 2, lf.y, WALL_H, lf.y);   // left corner  (tall W∩low S)
+    addPost(fr.x, fr.y + TH / 2, 18, fr.y);       // front corner (low S∩low E)
+  }
+  // the building's own 4 outer corners (the perimeter wall has none otherwise)
+  {
+    const tp = project(0, 0), rp = project(ISO_GW - 1, 0), lp = project(0, ISO_GH - 1), fp = project(ISO_GW - 1, ISO_GH - 1);
+    addPost(tp.x, tp.y - TH / 2, WALL_H, tp.y);   // top    (tall N∩W)
+    addPost(rp.x + TW / 2, rp.y, WALL_H, rp.y);   // right  (tall N∩low E)
+    addPost(lp.x - TW / 2, lp.y, WALL_H, lp.y);   // left   (tall W∩low S)
+    addPost(fp.x, fp.y + TH / 2, 18, fp.y);       // front  (low S∩low E)
   }
 
   for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.4 }); }
@@ -302,13 +334,13 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   // agent reads as sitting on it
   for (const s of waitingSpots) { const g = new Graphics(); drawPiece(g, { x: s.x, y: s.y, kind: 'chair' }); depthItems.push({ g, z: project(s.x, s.y).y - 0.4 }); }
 
-  // wall decor on the tall back walls: a framed picture (north) + a clock (west)
+  // wall decor: only a clock on the west wall, and only for the departments
+  // flagged in DEPT_DECOR (so it's a per-room accent, not the same on every
+  // wall). No framed picture — the label above the room is the only nameplate.
   for (const r of rooms) {
-    if (r.name === 'waiting') continue;
-    const x0 = r.ix - 1, y0 = r.iy - 1;
-    const accent = r.name === 'lounge' ? 0x7a4a86 : accentByName[DEPARTMENT_ACCENT[r.name]];
-    const midx = r.ix + Math.floor(r.iw / 2), midy = r.iy + Math.floor(r.ih / 2);
-    const np = project(midx, y0); const gp = new Graphics(); wallPicture(gp, np.x, np.y - WALL_H * 0.55, accent); depthItems.push({ g: gp, z: np.y + 0.2 });
+    if (r.name === 'waiting' || r.name === 'lounge') continue;
+    if (!DEPT_DECOR[r.name as Department].clock) continue;
+    const x0 = r.ix - 1, midy = r.iy + Math.floor(r.ih / 2);
     const wp = project(x0, midy); const gc = new Graphics(); wallClock(gc, wp.x, wp.y - WALL_H * 0.55); depthItems.push({ g: gc, z: wp.y + 0.2 });
   }
 
