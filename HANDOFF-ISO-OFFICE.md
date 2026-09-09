@@ -82,13 +82,29 @@ La hive está **"Login expired / Not logged in"**, así que en condiciones norma
 
 ---
 
-## 4 · Qué falta (en orden sugerido)
+## 4 · EMPEZÁ POR ACÁ (lo que sigue, concreto)
 
-1. **Poblar los departamentos**: hoy todos esperan (hive sin loguear). Con la hive activa, los agentes activos ya caminan a su depto (lógica lista). Para verlo sin la hive: la tarea de prueba de arriba.
-2. **Fidelidad de arte** (el gran salto hacia la referencia): pack de arte iso con licencia comercial (LimeZu del entorno es NO comercial — hay alternativas en itch.io) o arte a medida. El motor (`isoRoomsScene`/`OfficeFloor`) ya está listo para recibir sprites/tiles mejores.
-3. **Identidad temática por sala** (dev con muchos monitores, sala de reuniones con mesa grande, cocina) — hoy los deptos son casi idénticos.
-4. **Iluminación por shader** (hoy es un wash cálido con diamantes low-alpha) y **colisión entre agentes** (hoy pueden solaparse al caminar).
-5. Decidir si el cenital ortogonal se elimina o se mantiene como modo alterno.
+La estructura y composición del iso office están **sólidas y cerradas**. Lo que queda es **fidelidad de arte + vida**. Hay una decisión del usuario y hay trabajo autónomo. Arrancá así:
+
+### Paso 1 (DECISIÓN del usuario — planteásela primero, no la adivines)
+**¿Cómo cerramos la brecha con la referencia (Agent-Pixels)?** El usuario quiso repetidamente ese look; con procedural NO se llega. Presentale opciones concretas y que elija:
+- **(A) Pack de arte iso con licencia comercial.** Investigá con WebSearch 2–3 packs de "isometric office / interior" pixel-art en itch.io u otros, con **licencia usable comercialmente** (LimeZu del entorno es NO comercial — evitarlo o comprar su licencia paga). Pasale: nombre, precio, licencia, captura/URL. Una vez elegido, integralo al motor (`isoRoomsScene.ts` dibuja todo por código; se reemplazan los `drawPiece`/paredes/piso por sprites del pack, o se migra a tiles). **Este es el único camino real al look de la referencia.**
+- **(B) Arte pixel a medida** (un artista, o vos MUY lento a mano): máxima fidelidad y original, pero es semanas de trabajo de arte.
+- **(C) Quedarse en procedural** y seguir puliendo la estética propia (no igualará la foto).
+
+### Paso 2 (AUTÓNOMO — se puede hacer ya, sin decisión de arte)
+1. **Modo demo / vida en la oficina**: hoy, con la hive sin loguear, TODOS esperan y los deptos se ven vacíos. Agregá un modo dev que cicle algunos agentes a "working" (via store) para que **caminen a sus deptos y los pueblen** — así la oficina se ve viva sin depender de la hive. (La lógica espera→activación→camina ya está; solo falta disparar estados de prueba.)
+2. **Identidad temática por sala**: hoy los deptos son casi idénticos. Diferenciá: Desarrollo con más monitores, Dirección/Reuniones con mesa grande + sillas, Finanzas con pizarra/archivadores, etc. (editar `isoRoomsScene.ts` → bloque de muebles por `RoomName`).
+3. **Colisión entre agentes** (hoy pueden solaparse al caminar) + pulir el reparto.
+4. **Iluminación**: hoy es un wash cálido con diamantes low-alpha; se puede mejorar (más contraste interior/exterior, sombras de muebles proyectadas).
+
+### Recomendación del diseñador
+Planteá el **Paso 1** al usuario de entrada (es su decisión y define todo). Si quiere avanzar mientras decide, hacé el **Paso 2.1 (modo demo)** — es lo que más "da vida" y no depende de nada externo.
+
+### No relitigar
+- No seguir puliendo procedural esperando que "se vea como la foto" (no va a pasar — ver §2).
+- No dibujar las 4 paredes altas (taparían el interior — el diseño de 2 traseras altas + murito es correcto).
+- El cenital ortogonal queda como código muerto en la oficina; decidir más adelante si se borra.
 
 ---
 
