@@ -43,7 +43,7 @@ const rooms: RoomDef[] = [];
   };
   const topRow = placeRow(top, 1);
   const topH = Math.max(...topRow.map((r) => r.ih)) + 2;
-  const waiting: RoomDef = { name: 'waiting', n: 0, iw: 15, ih: 10, ix: 0, iy: 1 + topH + CORR + 1 };
+  const waiting: RoomDef = { name: 'waiting', n: 0, iw: 18, ih: 12, ix: 0, iy: 1 + topH + CORR + 1 };
   const bottomRow = placeRow(bottom, waiting.iy - 1 + waiting.ih + 2 + CORR);
   // centre the waiting room under the widest row
   const rowRight = (row: RoomDef[]): number => { const last = row[row.length - 1]; return last.ix + last.iw + 1; };
