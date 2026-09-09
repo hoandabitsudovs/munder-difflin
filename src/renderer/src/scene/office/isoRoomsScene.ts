@@ -15,7 +15,7 @@ import { Projection } from './projection';
 
 export interface Tile { x: number; y: number; }
 
-const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 2;   // tighter corridors → compact plan
+const TILE = 16, TW = 32, TH = 16, WALL_H = 36, CORR = 1;   // 1-tile corridors → compact, connected plan
 
 type RoomName = Department | 'lounge' | 'waiting';
 interface RoomDef { name: RoomName; n: number; iw: number; ih: number; ix: number; iy: number; }
@@ -243,9 +243,14 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   const floorC = new Container();
   const floor = new Graphics();
   for (let ty = 0; ty < ISO_GH; ty++) for (let tx = 0; tx < ISO_GW; tx++) {
-    const p = project(tx, ty), c = floorColor(tx, ty);
-    diamond(floor, p.x, p.y, TW / 2, TH / 2, shade(c, 0.86)); // grout
-    diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, c);      // tile face → subtle tiled texture
+    const p = project(tx, ty), c = floorColor(tx, ty), inRoom = roomFloorOf.has(key(tx, ty));
+    diamond(floor, p.x, p.y, TW / 2, TH / 2, shade(c, 0.84)); // grout
+    diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, c);      // tile face
+    if (inRoom) {                                             // wood-plank seams inside rooms
+      for (const off of [-3, 3]) { const hw = Math.round((TW / 2 - 1) * (1 - Math.abs(off) / (TH / 2))); floor.rect(p.x - hw, p.y + off, hw * 2, 1).fill(shade(c, 0.9)); }
+    } else {                                                  // corridor: a lighter center for a walked look
+      floor.rect(p.x - 2, p.y - 1, 4, 2).fill(shade(c, 1.08));
+    }
   }
   floorC.addChild(floor);
 

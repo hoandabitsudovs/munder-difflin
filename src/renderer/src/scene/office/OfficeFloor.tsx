@@ -1613,12 +1613,15 @@ export function OfficeFloor() {
           const s = agent.status;
           const active = agent.isGod || s === 'working' || s === 'thinking' || s === 'compacting' || s === 'looping' || s === 'waiting' || s === 'blocked';
           c.setStatusGlyph(s === 'blocked' ? 'blocked' : s === 'compacting' ? 'compacting' : s === 'looping' ? 'looping' : s === 'success' ? 'success' : 'none');
+          // Only show a thought bubble for genuine live work — idle/reconnecting
+          // agents stay quiet so the waiting room isn't a wall of bubbles.
+          const reallyWorking = s === 'working' || s === 'thinking' || s === 'compacting';
           if (active) {
-            c.sitAtDesk(s === 'working' || s === 'thinking' || s === 'compacting');
-            c.showThought(liveActivity(agent, agent.isGod ? t('office.activity.runningFloor') : t('office.activity.waiting')), agent.carrying);
+            c.sitAtDesk(reallyWorking);
+            if (reallyWorking) c.showThought(liveActivity(agent), agent.carrying); else c.hideThought();
           } else {
             if (rt.waitingSpot) c.walkToTile(rt.waitingSpot);
-            c.showThought(liveActivity(agent, t('office.activity.idle')));
+            c.hideThought();
           }
           return;
         }
