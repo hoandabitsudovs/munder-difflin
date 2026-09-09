@@ -93,7 +93,12 @@ La estructura y composición del iso office están **sólidas y cerradas**. Lo q
 - **(C) Quedarse en procedural** y seguir puliendo la estética propia (no igualará la foto).
 
 ### Paso 2 (AUTÓNOMO — se puede hacer ya, sin decisión de arte)
-1. **Modo demo / vida en la oficina**: hoy, con la hive sin loguear, TODOS esperan y los deptos se ven vacíos. Agregá un modo dev que cicle algunos agentes a "working" (via store) para que **caminen a sus deptos y los pueblen** — así la oficina se ve viva sin depender de la hive. (La lógica espera→activación→camina ya está; solo falta disparar estados de prueba.)
+1. ~~**Modo demo / vida en la oficina**~~ **✅ HECHO** (commit `ff11b9f0`). `src/renderer/src/store/isoDemo.ts` seedea los agentes de departamento y cicla sus estados working↔idle para que caminen a sus deptos y los pueblen, sin depender de la hive. Se activa con `VITE_CTH_ISO_DEMO=1` (solo DEV); mientras corre, suspende `useHermesPoll` para que el poll no le pise los estados. Correrlo:
+   ```bash
+   export PATH="/Users/juan/.nvm/versions/node/v24.18.0/bin:$PATH"
+   cd ~/Dashboard/munder-difflin && VITE_CTH_ISO_DEMO=1 npm run dev
+   ```
+   Verificado en vivo: los deptos se pueblan y los agentes ciclan con bocadillos de trabajo.
 2. **Identidad temática por sala**: hoy los deptos son casi idénticos. Diferenciá: Desarrollo con más monitores, Dirección/Reuniones con mesa grande + sillas, Finanzas con pizarra/archivadores, etc. (editar `isoRoomsScene.ts` → bloque de muebles por `RoomName`).
 3. **Colisión entre agentes** (hoy pueden solaparse al caminar) + pulir el reparto.
 4. **Iluminación**: hoy es un wash cálido con diamantes low-alpha; se puede mejorar (más contraste interior/exterior, sombras de muebles proyectadas).
