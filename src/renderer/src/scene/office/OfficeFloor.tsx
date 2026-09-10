@@ -1809,6 +1809,29 @@ export function OfficeFloor() {
         }
       };
 
+      // Push apart any two WALKING agents that get within MIN screen-px, so they
+      // don't render stacked while crossing the waiting room / corridors. The
+      // push is mostly lateral (screen-x) and capped per frame, so it reads as a
+      // sidestep and never fights depth order or pathfinding (see Character.nudge).
+      const separateWalkers = (): void => {
+        const walkers: Character[] = [];
+        for (const rt of runtimes.values()) if (rt.character.isWalking()) walkers.push(rt.character);
+        const MIN = 11, CAP = 1.2;
+        for (let i = 0; i < walkers.length; i++) {
+          for (let j = i + 1; j < walkers.length; j++) {
+            const a = walkers[i].getPixelPosition(), b = walkers[j].getPixelPosition();
+            let dx = a.x - b.x; const dyS = a.y - b.y; const dy = dyS * 2; // compensate iso half-height
+            let dist = Math.hypot(dx, dy);
+            if (dist >= MIN) continue;
+            if (dist < 0.001) { dx = i % 2 ? 1 : -1; dist = 1; }             // exact overlap → arbitrary split
+            const push = Math.min(CAP, (MIN - dist) * 0.25), ux = dx / dist;
+            const uy = dyS === 0 ? 0 : Math.sign(dyS) * push * 0.15;
+            walkers[i].nudge(ux * push, uy);
+            walkers[j].nudge(-ux * push, -uy);
+          }
+        }
+      };
+
       const onTick = (ticker: Ticker) => {
         const dt = ticker.deltaMS / 1000;
         camera.update(dt);
@@ -1819,6 +1842,11 @@ export function OfficeFloor() {
           rt.character.setBubbleZoom(zoom);
           rt.character.update(dt);
         }
+        // Local separation so walking agents don't stack on the same pixel.
+        // Only walkers are nudged (Character.nudge no-ops otherwise); the push is
+        // mostly lateral (screen-x) and capped, so it reads as agents sidestepping
+        // past each other without disturbing depth order or pathfinding.
+        if (isoRooms) separateWalkers();
         // iso: no cafeteria/coffee/errand roaming — agents wait or work in place
         if (!isoRooms) {
           updateCafeteria(dt);

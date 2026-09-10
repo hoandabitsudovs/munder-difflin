@@ -170,6 +170,19 @@ export class Character {
   getAnimation(): CharacterAnimation { return this.state; }
   getDeskTile(): { x: number; y: number } { return this.deskTile; }
   getPixelPosition(): { x: number; y: number } { return { x: this.px, y: this.py }; }
+  isWalking(): boolean { return this.state === 'walk'; }
+
+  /** Local separation: gently slide the foot to keep walking agents from
+   *  overlapping (see OfficeFloor's onTick). No-op unless walking, so seated /
+   *  idle agents are never disturbed. The nudge is tiny and self-correcting —
+   *  updateWalk keeps pulling the foot toward the next path tile — so it can't
+   *  push an agent off its route or deadlock pathfinding. */
+  nudge(dx: number, dy: number): void {
+    if (this.state !== 'walk') return;
+    this.px += dx;
+    this.py += dy;
+    this.sprite.setPosition(this.px, this.py);
+  }
 
   getTilePosition(): { x: number; y: number } {
     return this.mapRenderer.pixelToTile(this.px, this.py - 1);
