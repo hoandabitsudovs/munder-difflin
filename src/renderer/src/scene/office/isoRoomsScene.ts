@@ -395,9 +395,12 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
 
   for (const p of pieces) { const g = new Graphics(); drawPiece(g, p); depthItems.push({ g, z: project(p.x, p.y).y + 0.4 }); }
 
-  // a chair at every waiting-room spot, drawn BEHIND the agent (lower z) so the
-  // agent reads as sitting on it
-  for (const s of waitingSpots) { const g = new Graphics(); drawPiece(g, { x: s.x, y: s.y, kind: 'chair' }); depthItems.push({ g, z: project(s.x, s.y).y - 0.4 }); }
+  // a chair at every waiting-room spot AND every department desk seat, drawn
+  // BEHIND the agent (lower z) so it reads as sitting on it — the desk chairs
+  // make an activated agent's "working" pose read as sitting at its computer.
+  const seatChairs: Tile[] = [...waitingSpots];
+  for (const seats of seatsByDept.values()) seatChairs.push(...seats);
+  for (const s of seatChairs) { const g = new Graphics(); drawPiece(g, { x: s.x, y: s.y, kind: 'chair' }); depthItems.push({ g, z: project(s.x, s.y).y - 0.4 }); }
 
   // wall decor: only a clock on the west wall, and only for the departments
   // flagged in DEPT_DECOR (so it's a per-room accent, not the same on every
