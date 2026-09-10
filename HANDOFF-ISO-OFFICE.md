@@ -99,9 +99,11 @@ La estructura y composición del iso office están **sólidas y cerradas**. Lo q
    cd ~/Dashboard/munder-difflin && VITE_CTH_ISO_DEMO=1 npm run dev
    ```
    Verificado en vivo: los deptos se pueblan y los agentes ciclan con bocadillos de trabajo.
-2. **Identidad temática por sala**: hoy los deptos son casi idénticos. Diferenciá: Desarrollo con más monitores, Dirección/Reuniones con mesa grande + sillas, Finanzas con pizarra/archivadores, etc. (editar `isoRoomsScene.ts` → bloque de muebles por `RoomName`).
-3. **Colisión entre agentes** (hoy pueden solaparse al caminar) + pulir el reparto.
-4. **Iluminación**: hoy es un wash cálido con diamantes low-alpha; se puede mejorar (más contraste interior/exterior, sombras de muebles proyectadas).
+2. ~~**Identidad temática por sala**~~ **✅ HECHO** (commit `3cb8d47a`). `isoRoomsScene.ts` → `DEPT_DECOR`: cada depto tiene accesorios de esquina propios + una **pieza distintiva** contra la pared (Dirección mesa de reuniones, Desarrollo/Ciber rack de servidores, Creativo caballete, Marketing/Finanzas pizarra). 4 kinds nuevos en `drawPiece`: `serverrack`/`meeting`/`easel`/`whiteboard`.
+3. ~~**Colisión entre agentes**~~ **✅ HECHO** (commit `d73eae7d`). Separación local en el `onTick` de `OfficeFloor.tsx` (`separateWalkers`) + `Character.nudge()`: dos agentes CAMINANDO a <11px se empujan suave, sin tocar el pathfinding (no deadlocks). No-op para asientos/idle.
+4. ~~**Iluminación**~~ **✅ HECHO** (commit `3cb8d47a`). Pasillos con tinte frío (contraste vs. salas cálidas), glow cálido más fuerte, y sombras proyectadas de muebles en el piso.
+
+**Todo el Paso 2 está hecho.** Lo que queda es el **Paso 1** (decisión de arte del usuario) — el único camino real a la fidelidad de la referencia.
 
 ### Recomendación del diseñador
 Planteá el **Paso 1** al usuario de entrada (es su decisión y define todo). Si quiere avanzar mientras decide, hacé el **Paso 2.1 (modo demo)** — es lo que más "da vida" y no depende de nada externo.
