@@ -192,8 +192,15 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
   const { x, y } = project(p.x, p.y);
   switch (p.kind) {
     case 'desk': { const w = 0x8a714a; prism(g, x, y, 12, 6, 8, mixHex(w, 0xffffff, 0.14), shade(w, 0.72), shade(w, 0.55));
-      g.rect(x - 6, y - 24, 12, 11).fill(0x1c2028); g.rect(x - 5, y - 23, 10, 8).fill(0x74b4c8); g.rect(x - 4, y - 22, 3, 2).fill(0xbfe6ee); // monitor
-      g.rect(x - 6, y - 8, 9, 3).fill(0xdadde2); g.rect(x + 4, y - 7, 2, 2).fill(0xdadde2); g.rect(x + 1, y - 11, 4, 3).fill(0xf3f0e7); break; } // keyboard/mouse/papers
+      diamond(g, x - 1, y - 18, 13, 8, 0x8fd6ea, 0.14);                                  // screen glow halo (monitor is on)
+      g.rect(x - 7, y - 25, 14, 12).fill(0x14181e); g.rect(x - 6, y - 24, 12, 10).fill(0x1c2028); // bezel
+      g.rect(x - 5, y - 23, 10, 8).fill(0x5fd0e6); g.rect(x - 4, y - 22, 4, 2).fill(0xcaf2fa);     // lit screen + highlight
+      g.rect(x - 4, y - 19, 7, 1).fill(0x3fa8c0); g.rect(x - 4, y - 17, 4, 1).fill(0x3fa8c0);      // faint text lines on screen
+      g.rect(x - 1, y - 13, 2, 3).fill(0x2a2f38);                                        // monitor stand
+      g.rect(x - 7, y - 8, 10, 3).fill(0xdadde2); g.rect(x - 6, y - 7, 8, 1).fill(0xf0f2f5);       // keyboard
+      g.rect(x + 5, y - 7, 2, 2).fill(0xdadde2);                                         // mouse
+      g.rect(x - 6, y - 11, 4, 3).fill(0xf3f0e7);                                        // papers
+      g.rect(x + 4, y - 12, 3, 4).fill(0xd25a4a); g.rect(x + 7, y - 11, 1, 2).fill(0xb0463a); break; } // coffee mug + handle
     case 'bookshelf': { const w = 0x63432a; prism(g, x, y, 12, 6, 30, shade(w, 1.05), shade(w, 0.7), shade(w, 0.48)); const bk = [0xbe4638, 0xd2aa46, 0x4678aa, 0x5aa06e, 0xaa6eb4, 0xd98a4a]; for (let s = 0; s < 3; s++) { const yy = y - 7 - s * 8; for (let i = 0; i < 6; i++) g.rect(x - 8 + i * 3, yy - 5, 2, 5).fill(bk[(i + s) % bk.length]); g.rect(x - 9, yy, 18, 1).fill(shade(w, 0.4)); } break; }
     case 'plant': { diamond(g, x, y + 2, 8, 5, 0x000000, 0.25); g.rect(x - 3, y - 9, 6, 9).fill(0x9a6444); g.rect(x - 3, y - 10, 6, 1).fill(0x7a4e34); diamond(g, x, y - 17, 15, 10, 0x3e7644); diamond(g, x - 2, y - 23, 11, 8, 0x548a58); diamond(g, x + 3, y - 21, 8, 6, 0x468050); break; }
     case 'bench': { const c = 0x7a5a3c; prism(g, x, y, 11, 6, 6, shade(c, 1.1), shade(c, 0.72), shade(c, 0.55)); g.rect(x - 11, y - 15, 22, 7).fill(shade(c, 0.85)); break; }
@@ -241,6 +248,12 @@ function floorColor(x: number, y: number): number {
   return (x + y) % 2 ? mixHex(accent, 0x141414, 0.5) : mixHex(accent, 0x141414, 0.58);
 }
 
+// Floor material per room, so not every room is the same wood: tech/finance
+// rooms get a tiled (grid) floor, the rest keep warm wood planks. Only visible
+// at the room's edges (the rug covers the middle), but breaks the uniformity.
+const TILE_ROOMS = new Set<RoomName>(['Desarrollo', 'Finanzas', 'Ciberseguridad', 'waiting']);
+const floorMaterial = (r: RoomDef): 'wood' | 'tile' => (TILE_ROOMS.has(r.name) ? 'tile' : 'wood');
+
 // Thin walls on all 4 room edges. The two BACK edges (N/W) are tall; the two
 // FRONT edges (S/E) are short low walls (a murito) so the room reads enclosed on
 // 4 sides without hiding the interior — the trick the reference uses.
@@ -257,6 +270,7 @@ function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'
   else if (edge === 'S') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y + TH2; inx = 7; iny = -3; f = shade(WALL_BASE, 0.72); }
   else { ax = p.x; ay = p.y + TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = -3; f = shade(WALL_BASE, 0.6); }
   g.poly([ax, ay - H, bx, by - H, bx, by, ax, ay]).fill(f);                                          // outer face
+  g.poly([ax, ay - H + 3, bx, by - H + 3, bx, by - H + 5, ax, ay - H + 5]).fill(shade(f, 1.12));      // crown molding highlight
   g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(WALL_FOOT, edge === 'N' ? 1 : 0.85));  // baseboard
   g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(WALL_TOP);    // top cap (thickness)
 }
@@ -282,8 +296,12 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
     const p = project(tx, ty), c = floorColor(tx, ty), inRoom = roomFloorOf.has(key(tx, ty));
     diamond(floor, p.x, p.y, TW / 2, TH / 2, shade(c, 0.84)); // grout
     diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, c);      // tile face
-    if (inRoom) {                                             // wood-plank seams inside rooms
-      for (const off of [-3, 3]) { const hw = Math.round((TW / 2 - 1) * (1 - Math.abs(off) / (TH / 2))); floor.rect(p.x - hw, p.y + off, hw * 2, 1).fill(shade(c, 0.9)); }
+    if (inRoom) {                                             // room floor material: wood planks or tile grid
+      if (floorMaterial(roomFloorOf.get(key(tx, ty))!) === 'tile') {
+        diamond(floor, p.x, p.y, TW / 2 - 3, TH / 2 - 2, shade(c, 1.05)); // beveled tile face → grid read
+      } else {
+        for (const off of [-3, 3]) { const hw = Math.round((TW / 2 - 1) * (1 - Math.abs(off) / (TH / 2))); floor.rect(p.x - hw, p.y + off, hw * 2, 1).fill(shade(c, 0.9)); }
+      }
     } else {                                                  // corridor: cool tint + a lighter center for a walked look
       diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, 0x0a1a33, 0.12); // cool wash → contrast vs. warm rooms
       floor.rect(p.x - 2, p.y - 1, 4, 2).fill(shade(c, 1.08));
