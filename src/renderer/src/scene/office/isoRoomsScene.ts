@@ -261,18 +261,20 @@ const WALL_BASE = 0xccd0da, WALL_TOP = 0xe7eaf1, WALL_FOOT = 0x9298a8; // light 
 // Wall with real thickness: a face + a lighter TOP CAP (the slab's top surface),
 // plus a baseboard. The cap is what makes it read as a solid 3D wall, not a flat
 // line. Back walls (N/W) tall; front walls (S/E) low muritos.
-function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void {
+function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E', base = WALL_BASE): void {
   const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
   const H = edge === 'N' || edge === 'W' ? WALL_H : 18;
+  const cap = mixHex(base, WALL_TOP, 0.7); // top cap follows the wall's tint
   let ax: number, ay: number, bx: number, by: number, inx: number, iny: number, f: number;
-  if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = 3; f = WALL_BASE; }
-  else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; inx = 7; iny = 3; f = shade(WALL_BASE, 0.82); }
-  else if (edge === 'S') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y + TH2; inx = 7; iny = -3; f = shade(WALL_BASE, 0.72); }
-  else { ax = p.x; ay = p.y + TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = -3; f = shade(WALL_BASE, 0.6); }
+  if (edge === 'N') { ax = p.x; ay = p.y - TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = 3; f = base; }
+  else if (edge === 'W') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y - TH2; inx = 7; iny = 3; f = shade(base, 0.82); }
+  else if (edge === 'S') { ax = p.x - TW2; ay = p.y; bx = p.x; by = p.y + TH2; inx = 7; iny = -3; f = shade(base, 0.72); }
+  else { ax = p.x; ay = p.y + TH2; bx = p.x + TW2; by = p.y; inx = -7; iny = -3; f = shade(base, 0.6); }
   g.poly([ax, ay - H, bx, by - H, bx, by, ax, ay]).fill(f);                                          // outer face
+  if (H === WALL_H) g.poly([ax, ay - H + 14, bx, by - H + 14, bx, by - H + 16, ax, ay - H + 16]).fill(shade(f, 0.86)); // chair-rail band (tall walls)
   g.poly([ax, ay - H + 3, bx, by - H + 3, bx, by - H + 5, ax, ay - H + 5]).fill(shade(f, 1.12));      // crown molding highlight
   g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(WALL_FOOT, edge === 'N' ? 1 : 0.85));  // baseboard
-  g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(WALL_TOP);    // top cap (thickness)
+  g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(cap);         // top cap (thickness)
 }
 
 // a vertical corner column that plugs the junction where two walls meet. Wider
@@ -353,11 +355,16 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   // an agent behind a wall/shelf is occluded, in front it occludes. This is what
   // makes it read as 3D space instead of flat.
   const depthItems: DepthItem[] = [];
+  // Each room's walls are tinted toward its accent (subtle "wallpaper") so every
+  // department reads by wall colour too, not just furniture. The waiting room
+  // and the neutral exterior perimeter keep the plain office grey.
+  const wallTint = (r: RoomDef | undefined): number =>
+    !r || r.name === 'waiting' ? WALL_BASE : mixHex(WALL_BASE, rugTint(r), 0.17);
   const wallSets: [Set<string>, 'N' | 'W' | 'S' | 'E'][] = [[wallDrawN, 'N'], [wallDrawW, 'W'], [wallDrawS, 'S'], [wallDrawE, 'E']];
   for (const [set, edge] of wallSets) for (const k of set) {
     if (doorSet.has(k)) continue;                          // leave the doorway open
     const [x, y] = k.split(',').map(Number);
-    const g = new Graphics(); drawWall(g, x, y, edge);
+    const g = new Graphics(); drawWall(g, x, y, edge, wallTint(roomFloorOf.get(k)));
     depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
   }
 
