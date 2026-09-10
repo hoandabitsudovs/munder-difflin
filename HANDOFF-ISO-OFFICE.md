@@ -86,11 +86,17 @@ La hive está **"Login expired / Not logged in"**, así que en condiciones norma
 
 La estructura y composición del iso office están **sólidas y cerradas**. Lo que queda es **fidelidad de arte + vida**. Hay una decisión del usuario y hay trabajo autónomo. Arrancá así:
 
-### Paso 1 (DECISIÓN del usuario — planteásela primero, no la adivines)
-**¿Cómo cerramos la brecha con la referencia (Agent-Pixels)?** El usuario quiso repetidamente ese look; con procedural NO se llega. Presentale opciones concretas y que elija:
+### Paso 1 — DECISIÓN TOMADA (10 sept): procedural pulido, sin comprar
+**El usuario decidió NO comprar packs.** Quiere usar las referencias iso (LimeZu, Isometric Interiors de pixel_Salvaje, Agent-Pixels, etc.) **solo como inspiración** para crear arte propio "mejor o casi igual, pero sin licencia" — es decir, seguir en procedural (opción C) pero con pases de **dirección de arte** que se acerquen al look de la referencia, todo original (nada de copiar píxeles ni código). Ya se hizo el primer pase (alfombras de área por sala, commit `ccf49fa7`). Próximos candidatos de pulido: mejores escritorios (silla + monitor con glow), materiales de piso variados, detalle de personajes iso, arte de pared sutil (NO centrado bajo el nombre — ver §3, el usuario ya pidió quitar el cuadro de ahí). **No volver a proponer comprar packs salvo que el usuario lo pida.**
+
+<details><summary>Contexto original del Paso 1 (opciones de compra investigadas, ya descartadas por el usuario)</summary>
+
+**¿Cómo cerramos la brecha con la referencia (Agent-Pixels)?** El usuario quiso repetidamente ese look; con procedural NO se llega [a la fidelidad de la foto]. Opciones que se le presentaron:
 - **(A) Pack de arte iso con licencia comercial.** Investigá con WebSearch 2–3 packs de "isometric office / interior" pixel-art en itch.io u otros, con **licencia usable comercialmente** (LimeZu del entorno es NO comercial — evitarlo o comprar su licencia paga). Pasale: nombre, precio, licencia, captura/URL. Una vez elegido, integralo al motor (`isoRoomsScene.ts` dibuja todo por código; se reemplazan los `drawPiece`/paredes/piso por sprites del pack, o se migra a tiles). **Este es el único camino real al look de la referencia.**
 - **(B) Arte pixel a medida** (un artista, o vos MUY lento a mano): máxima fidelidad y original, pero es semanas de trabajo de arte.
-- **(C) Quedarse en procedural** y seguir puliendo la estética propia (no igualará la foto).
+- **(C) Quedarse en procedural** y seguir puliendo la estética propia (no igualará la foto). ← **el usuario eligió esto** (ver arriba).
+
+</details>
 
 ### Paso 2 (AUTÓNOMO — se puede hacer ya, sin decisión de arte)
 1. ~~**Modo demo / vida en la oficina**~~ **✅ HECHO** (commit `ff11b9f0`). `src/renderer/src/store/isoDemo.ts` seedea los agentes de departamento y cicla sus estados working↔idle para que caminen a sus deptos y los pueblen, sin depender de la hive. Se activa con `VITE_CTH_ISO_DEMO=1` (solo DEV); mientras corre, suspende `useHermesPoll` para que el poll no le pise los estados. Correrlo:
