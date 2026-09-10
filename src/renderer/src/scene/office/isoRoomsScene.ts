@@ -302,6 +302,26 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
       }
     }
   }
+  // area rugs: a bordered rhombus over each room's interior, tinted by the
+  // department accent — warms the floor, fills the empty front, and reinforces
+  // each room's identity (original art, inspired by iso office interiors). Desks
+  // sit against the back wall outside the rug; agents stand on it.
+  const rugTint = (r: RoomDef): number =>
+    r.name === 'waiting' ? 0x8a7a52 : r.name === 'lounge' ? 0x8a4a86 : accentByName[DEPARTMENT_ACCENT[r.name as Department]];
+  const rhombus = (pts: { x: number; y: number }[], s: number, col: number, alpha = 1): void => {
+    const cx = (pts[0].x + pts[2].x) / 2, cy = (pts[0].y + pts[2].y) / 2;
+    floor.poly(pts.flatMap((p) => [cx + (p.x - cx) * s, cy + (p.y - cy) * s])).fill({ color: col, alpha });
+  };
+  for (const r of rooms) {
+    const a = r.ix + 1, b = r.iy + 1, c = r.ix + r.iw - 2, d = r.iy + r.ih - 2;
+    if (c < a || d < b) continue;
+    const P = [project(a, b), project(c, b), project(c, d), project(a, d)];
+    const tint = rugTint(r);
+    rhombus(P, 1.0, mixHex(tint, 0x1a1512, 0.62));   // dark border band
+    rhombus(P, 0.9, mixHex(tint, 0x2c2620, 0.5));    // rug field
+    rhombus(P, 0.62, mixHex(tint, 0xece2c8, 0.28));  // woven inner medallion
+    rhombus(P, 0.34, mixHex(tint, 0x1a1512, 0.5), 0.55);
+  }
   // furniture cast shadows on the floor, offset toward the front-right to match
   // the back-left key light, so pieces read as grounded and lit (not floating).
   for (const p of pieces) {
