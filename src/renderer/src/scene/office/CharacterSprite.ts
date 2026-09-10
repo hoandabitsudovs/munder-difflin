@@ -34,10 +34,18 @@ export class CharacterSprite {
   private frameW: number;
   private frameH: number;
   private cropMask: Graphics | null = null;
+  private shadow: Graphics;
 
   constructor(frames: Texture[][]) {
     this.frames = frames;
     this.container = new Container();
+
+    // Soft contact shadow under the feet (origin y=0) so the character reads as
+    // standing ON the iso floor instead of floating. Added first → behind the
+    // sprite; rides the container's alpha, so it fades with the character.
+    this.shadow = new Graphics();
+    this.shadow.ellipse(0, -1, 6, 2.6).fill({ color: 0x000000, alpha: 0.22 });
+    this.container.addChild(this.shadow);
 
     const initialFrames = this.getFrames('down', 'idle');
     this.sprite = new AnimatedSprite(initialFrames);
