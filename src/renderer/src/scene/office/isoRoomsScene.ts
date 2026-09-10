@@ -70,7 +70,8 @@ const wallDrawS = new Set<string>();              // south-border (short front w
 const wallDrawE = new Set<string>();              // east-border  (short front wall)
 const doorSet = new Set<string>();
 const blocked = new Set<string>();                // furniture (non-walkable)
-type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa' | 'arcade' | 'vending' | 'chair' | 'cabinet' | 'cooler';
+type Kind = 'desk' | 'bookshelf' | 'plant' | 'bench' | 'pool' | 'sofa' | 'arcade' | 'vending' | 'chair' | 'cabinet' | 'cooler'
+  | 'serverrack' | 'meeting' | 'easel' | 'whiteboard'; // per-department signature pieces
 const pieces: { x: number; y: number; kind: Kind }[] = [];
 const seatsByDept = new Map<Department, Tile[]>();
 const waitingSpots: Tile[] = [];
@@ -84,15 +85,18 @@ const addPiece = (x: number, y: number, kind: Kind, block = true): void => { pie
 // an optional wall clock — giving each room a distinct signature (Finanzas =
 // filing cabinets, Redacción = bookshelves, Creativo = plants, etc.).
 type Corner = 'BL' | 'BR' | 'FL' | 'FR';
-interface DeptDecor { corners: Partial<Record<Corner, Kind>>; clock?: boolean }
+// `feature` = the room's signature piece, set against the back wall so each
+// department reads at a glance (Dirección = boardroom table, Desarrollo/Ciber =
+// server rack, Creativo = easel, Marketing/Finanzas = whiteboard).
+interface DeptDecor { corners: Partial<Record<Corner, Kind>>; clock?: boolean; feature?: Kind }
 const DEPT_DECOR: Record<Department, DeptDecor> = {
-  'Dirección':      { corners: { BL: 'sofa',      BR: 'bookshelf', FL: 'plant',   FR: 'plant'     }, clock: true },
-  'Desarrollo':     { corners: { BL: 'cabinet',   BR: 'bookshelf', FL: 'cooler',  FR: 'bookshelf' } },
-  'Creativo':       { corners: { BL: 'plant',     BR: 'plant',     FL: 'bench',   FR: 'plant'     } },
-  'Marketing':      { corners: { BL: 'cabinet',   BR: 'bookshelf', FL: 'plant',   FR: 'cooler'    }, clock: true },
-  'Finanzas':       { corners: { BL: 'cabinet',   BR: 'cabinet',   FL: 'cooler',  FR: 'plant'     } },
+  'Dirección':      { corners: { BL: 'sofa',      BR: 'bookshelf', FL: 'plant',   FR: 'plant'     }, clock: true, feature: 'meeting' },
+  'Desarrollo':     { corners: { BL: 'cabinet',   BR: 'bookshelf', FL: 'cooler',  FR: 'bookshelf' }, feature: 'serverrack' },
+  'Creativo':       { corners: { BL: 'plant',     BR: 'plant',     FL: 'bench',   FR: 'plant'     }, feature: 'easel' },
+  'Marketing':      { corners: { BL: 'cabinet',   BR: 'bookshelf', FL: 'plant',   FR: 'cooler'    }, clock: true, feature: 'whiteboard' },
+  'Finanzas':       { corners: { BL: 'cabinet',   BR: 'cabinet',   FL: 'cooler',  FR: 'plant'     }, feature: 'whiteboard' },
   'Redacción':      { corners: { BL: 'bookshelf', BR: 'bookshelf', FL: 'cabinet', FR: 'plant'     }, clock: true },
-  'Ciberseguridad': { corners: { BL: 'cabinet',                                   FR: 'cooler'    } },
+  'Ciberseguridad': { corners: { BL: 'cabinet',                                   FR: 'cooler'    }, feature: 'serverrack' },
 };
 
 (function computeTiles(): void {
@@ -150,6 +154,9 @@ const DEPT_DECOR: Record<Department, DeptDecor> = {
       for (const [c, kind] of Object.entries(decor.corners) as [Corner, Kind][]) {
         addPiece(corner[c].x, corner[c].y, kind);
       }
+      // signature piece against the back wall, in a free even column (never a
+      // desk column, which are odd) so it doesn't collide with a desk/seat
+      if (decor.feature) addPiece(ix + r.iw - 2, iy, decor.feature);
       seatsByDept.set(r.name, seats);
     }
   }
@@ -201,6 +208,19 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
       break; }
     case 'cabinet': { const c = 0x6f7784; prism(g, x, y, 10, 6, 20, shade(c, 1.08), shade(c, 0.72), shade(c, 0.55)); for (const yy of [-4, -10, -16]) g.rect(x - 5, y + yy, 10, 1).fill(shade(c, 0.45)); g.rect(x - 1, y - 12, 2, 1).fill(0xcfd6e0); break; }
     case 'cooler': { const c = 0xdfe6ec; prism(g, x, y, 5, 3, 12, c, shade(c, 0.78), shade(c, 0.62)); diamond(g, x, y - 14, 8, 5, 0x66b8e0); g.rect(x - 2, y - 5, 4, 3).fill(0x4a90c0); break; }
+    case 'serverrack': { const c = 0x24282f; prism(g, x, y, 8, 5, 30, shade(c, 1.25), shade(c, 0.7), shade(c, 0.48)); // dark tech cabinet
+      const led = [0x50e070, 0xe0c040, 0x50e070, 0xe05a4a]; // rows of blinking indicators
+      for (let rr = 0; rr < 5; rr++) { g.rect(x - 5, y - 26 + rr * 5, 10, 3).fill(0x14161b); for (let i = 0; i < 3; i++) g.rect(x - 4 + i * 3, y - 25 + rr * 5, 1, 1).fill(led[(rr + i) % led.length]); } break; }
+    case 'meeting': { const w = 0x6f4e2e; prism(g, x, y, 18, 9, 7, mixHex(w, 0xffffff, 0.14), shade(w, 0.72), shade(w, 0.5)); // wide boardroom table
+      g.rect(x - 9, y - 9, 6, 3).fill(0xf3f0e7); g.rect(x + 3, y - 8, 6, 3).fill(0xdadde2); g.rect(x - 2, y - 10, 4, 3).fill(0xf3f0e7); break; } // papers + laptop
+    case 'easel': { // art easel: tripod + canvas
+      g.poly([x - 8, y, x - 1, y - 24, x + 1, y - 24, x - 6, y]).fill(0x6b4a2c); g.poly([x + 8, y, x + 6, y, x + 1, y - 24, x - 1, y - 24]).fill(0x7a5636);
+      g.rect(x - 10, y - 31, 20, 18).fill(0x8a7a5a); g.rect(x - 9, y - 30, 18, 16).fill(0xece7db); // framed canvas
+      g.circle(x - 3, y - 24, 2).fill(0xd24a5a); g.rect(x + 1, y - 21, 5, 3).fill(0x4a86c0); g.circle(x + 4, y - 26, 1).fill(0xe6c23c); break; } // paint
+    case 'whiteboard': { g.rect(x - 9, y - 5, 2, 5).fill(0x3a3f48); g.rect(x + 7, y - 5, 2, 5).fill(0x3a3f48); // legs
+      g.rect(x - 11, y - 25, 22, 21).fill(0x2a2f38); g.rect(x - 10, y - 24, 20, 19).fill(0xf2f3f5); // frame + surface
+      g.rect(x - 7, y - 20, 11, 1).fill(0x4a86c0); g.rect(x - 7, y - 17, 8, 1).fill(0xd24a5a); // header lines
+      for (let i = 0; i < 4; i++) g.rect(x - 6 + i * 3, y - 8 - i, 2, 4 + i).fill([0x4a86c0, 0x50b070, 0xe0a040, 0xd24a5a][i]); break; } // bar chart
   }
 }
 
@@ -264,7 +284,8 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
     diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, c);      // tile face
     if (inRoom) {                                             // wood-plank seams inside rooms
       for (const off of [-3, 3]) { const hw = Math.round((TW / 2 - 1) * (1 - Math.abs(off) / (TH / 2))); floor.rect(p.x - hw, p.y + off, hw * 2, 1).fill(shade(c, 0.9)); }
-    } else {                                                  // corridor: a lighter center for a walked look
+    } else {                                                  // corridor: cool tint + a lighter center for a walked look
+      diamond(floor, p.x, p.y, TW / 2 - 1, TH / 2 - 1, 0x0a1a33, 0.12); // cool wash → contrast vs. warm rooms
       floor.rect(p.x - 2, p.y - 1, 4, 2).fill(shade(c, 1.08));
     }
   }
@@ -272,14 +293,20 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   // shadow (AO) along the walls, so the floor doesn't read as flat and even.
   for (const r of rooms) {
     const p = project(r.ix + (r.iw - 1) / 2, r.iy + (r.ih - 1) / 2);
-    diamond(floor, p.x, p.y - 1, r.iw * TW / 2 * 0.9, r.ih * TH / 2 * 0.9, 0xffdf9c, 0.10);
-    diamond(floor, p.x, p.y - 1, r.iw * TW / 2 * 0.5, r.ih * TH / 2 * 0.5, 0xfff1cc, 0.12);
+    diamond(floor, p.x, p.y - 1, r.iw * TW / 2 * 0.95, r.ih * TH / 2 * 0.95, 0xffdf9c, 0.12);
+    diamond(floor, p.x, p.y - 1, r.iw * TW / 2 * 0.55, r.ih * TH / 2 * 0.55, 0xfff1cc, 0.15);
     for (let dy = 0; dy < r.ih; dy++) for (let dx = 0; dx < r.iw; dx++) {
       if (dx === 0 || dy === 0 || dx === r.iw - 1 || dy === r.ih - 1) {
         const q = project(r.ix + dx, r.iy + dy);
-        diamond(floor, q.x, q.y, TW / 2 - 1, TH / 2 - 1, 0x0a0a16, 0.18); // wall shadow
+        diamond(floor, q.x, q.y, TW / 2 - 1, TH / 2 - 1, 0x0a0a16, 0.18); // wall shadow (AO)
       }
     }
+  }
+  // furniture cast shadows on the floor, offset toward the front-right to match
+  // the back-left key light, so pieces read as grounded and lit (not floating).
+  for (const p of pieces) {
+    const q = project(p.x, p.y);
+    diamond(floor, q.x + 3, q.y + 3, TW / 2 - 2, TH / 2 - 2, 0x080810, 0.16);
   }
   floorC.addChild(floor);
 
