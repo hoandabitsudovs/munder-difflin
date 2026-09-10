@@ -261,7 +261,7 @@ const WALL_BASE = 0xccd0da, WALL_TOP = 0xe7eaf1, WALL_FOOT = 0x9298a8; // light 
 // Wall with real thickness: a face + a lighter TOP CAP (the slab's top surface),
 // plus a baseboard. The cap is what makes it read as a solid 3D wall, not a flat
 // line. Back walls (N/W) tall; front walls (S/E) low muritos.
-function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E', base = WALL_BASE): void {
+function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E', base = WALL_BASE, window = false): void {
   const p = project(x, y), TH2 = TH / 2, TW2 = TW / 2;
   const H = edge === 'N' || edge === 'W' ? WALL_H : 18;
   const cap = mixHex(base, WALL_TOP, 0.7); // top cap follows the wall's tint
@@ -273,6 +273,16 @@ function drawWall(g: Graphics, x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'
   g.poly([ax, ay - H, bx, by - H, bx, by, ax, ay]).fill(f);                                          // outer face
   if (H === WALL_H) g.poly([ax, ay - H + 14, bx, by - H + 14, bx, by - H + 16, ax, ay - H + 16]).fill(shade(f, 0.86)); // chair-rail band (tall walls)
   g.poly([ax, ay - H + 3, bx, by - H + 3, bx, by - H + 5, ax, ay - H + 5]).fill(shade(f, 1.12));      // crown molding highlight
+  // a window with sky punched into the wall face (perimeter tall walls only)
+  if (window && H === WALL_H) {
+    const P = (u: number, v: number): [number, number] => [ax + (bx - ax) * u, ay + (by - ay) * u - H * v];
+    const quad = (u0: number, u1: number, v0: number, v1: number): number[] => [...P(u0, v0), ...P(u1, v0), ...P(u1, v1), ...P(u0, v1)];
+    g.poly(quad(0.20, 0.80, 0.42, 0.88)).fill(shade(cap, 0.96));      // window frame
+    g.poly(quad(0.26, 0.74, 0.46, 0.84)).fill(0x9cc6ea);             // sky pane
+    g.poly(quad(0.26, 0.74, 0.72, 0.84)).fill(0xc6e2f5);            // brighter sky toward the top
+    g.poly(quad(0.49, 0.51, 0.46, 0.84)).fill(shade(cap, 0.9));      // vertical mullion
+    g.poly(quad(0.26, 0.74, 0.64, 0.66)).fill(shade(cap, 0.9));      // horizontal mullion
+  }
   g.poly([ax, ay - 4, bx, by - 4, bx, by, ax, ay]).fill(shade(WALL_FOOT, edge === 'N' ? 1 : 0.85));  // baseboard
   g.poly([ax, ay - H, bx, by - H, bx + inx, by - H + iny, ax + inx, ay - H + iny]).fill(cap);         // top cap (thickness)
 }
@@ -370,12 +380,15 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
 
   // OUTER perimeter wall: encloses the whole floor so it reads as a building,
   // not rooms floating on an endless grey plaza.
-  const outer = (x: number, y: number, edge: 'N' | 'W' | 'S' | 'E'): void => {
-    const g = new Graphics(); drawWall(g, x, y, edge);
+  const outer = (x: number, y: number, edge: 'N' | 'W' | 'S' | 'E', window = false): void => {
+    const g = new Graphics(); drawWall(g, x, y, edge, WALL_BASE, window);
     depthItems.push({ g, z: project(x, y).y + (edge === 'S' || edge === 'E' ? 0.6 : 0) });
   };
-  for (let x = 0; x < ISO_GW; x++) { outer(x, 0, 'N'); outer(x, ISO_GH - 1, 'S'); }
-  for (let y = 0; y < ISO_GH; y++) { outer(0, y, 'W'); outer(ISO_GW - 1, y, 'E'); }
+  // windows every 3rd tile on the tall exterior walls (N top, W left), away from
+  // the corners — daylight makes it read as a real office building.
+  const win = (i: number, n: number): boolean => i > 1 && i < n - 2 && i % 3 === 1;
+  for (let x = 0; x < ISO_GW; x++) { outer(x, 0, 'N', win(x, ISO_GW)); outer(x, ISO_GH - 1, 'S'); }
+  for (let y = 0; y < ISO_GH; y++) { outer(0, y, 'W', win(y, ISO_GH)); outer(ISO_GW - 1, y, 'E'); }
   // corner posts plug every wall junction so corners always read as joined. Each
   // post's z is the corner tile's own baseline + 4, so it paints IN FRONT of the
   // two walls meeting there and actually covers the seam (with a low z it hid
