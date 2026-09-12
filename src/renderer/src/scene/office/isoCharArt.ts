@@ -112,10 +112,13 @@ function drawChar(buf: Uint8ClampedArray, p: IsoParams, back: boolean, phase: 0 
   const S = (x: number, y: number, c: RGB, a?: number): void => set(buf, X(x), Y(y), c, a);
   const SHOE: RGB = [58, 49, 64], SHOE_SIDE = shade(SHOE, 0.7), SHOE_DK: RGB = [42, 36, 48], DARK: RGB = [42, 36, 48];
 
-  // legs — a small alternating lift reads as a step
-  const ll = phase === 1 ? -1 : 0, rl = phase === 2 ? -1 : 0;
-  R(4, 22 + ll, 6, 25 + ll, SHOE); R(9, 22 + rl, 11, 25 + rl, SHOE_SIDE);
-  R(4, 26 + ll, 6, 27 + ll, SHOE_DK); R(9, 26 + rl, 11, 27 + rl, shade(SHOE, 0.6));
+  // legs — upper legs fixed to the torso; the FEET clearly alternate (one foot
+  // lifted 2px + nudged forward, the other planted on the ground) so it reads as
+  // a real step instead of sliding. phase 0 = both planted (stand).
+  R(4, 22, 6, 25, SHOE); R(9, 22, 11, 25, SHOE_SIDE);           // upper legs
+  const lLift = phase === 1, rLift = phase === 2;
+  R(4 + (lLift ? 1 : 0), lLift ? 23 : 26, 6 + (lLift ? 1 : 0), lLift ? 24 : 27, SHOE_DK);          // left foot (planted low / lifted high+fwd)
+  R(9 + (rLift ? 1 : 0), rLift ? 23 : 26, 11 + (rLift ? 1 : 0), rLift ? 24 : 27, shade(SHOE, 0.6)); // right foot
 
   // torso (heavy widens it), front + side face
   const tw = p.heavy ? 1 : 0;
