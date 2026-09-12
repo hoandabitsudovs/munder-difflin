@@ -7,7 +7,8 @@
 // sheets are no longer used for the cast. See assets/ATTRIBUTION.md.
 
 import { Texture } from 'pixi.js';
-import { paintPortrait, sceneFrameBufs, SCENE_W, SCENE_H } from './portraitArt';
+import { paintPortrait } from './portraitArt'; // sceneFrameBufs/SCENE_* kept there as fallback
+import { isoSceneFrameBufs, ISO_W, ISO_H } from './isoCharArt';
 
 export type OfficeCharacterName =
   | 'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela'
@@ -81,11 +82,11 @@ export function hexToNumber(hex: string): number {
 // ─── scene frames ────────────────────────────────────────────────────────────
 const frameCache = new Map<OfficeCharacterName, Texture[][]>();
 
-function bufToTexture(buf: Uint8ClampedArray): Texture {
+function bufToTexture(buf: Uint8ClampedArray, w: number, h: number): Texture {
   const canvas = document.createElement('canvas');
-  canvas.width = SCENE_W; canvas.height = SCENE_H;
+  canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d')!;
-  const img = ctx.createImageData(SCENE_W, SCENE_H);
+  const img = ctx.createImageData(w, h);
   img.data.set(buf);
   ctx.putImageData(img, 0, 0);
   const tex = Texture.from(canvas);
@@ -103,9 +104,11 @@ function bufToTexture(buf: Uint8ClampedArray): Texture {
 export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[][]> {
   const cached = frameCache.get(name);
   if (cached) return cached;
-  const { front, back } = sceneFrameBufs(name);
+  // iso chibi sprites (isoCharArt) — swap back to sceneFrameBufs(name) + SCENE_W/H
+  // to restore the old top-down cast.
+  const { front, back } = isoSceneFrameBufs(name);
   const toRow = (bufs: Uint8ClampedArray[]): Texture[] => {
-    const [stand, stepL, stepR] = bufs.map(bufToTexture);
+    const [stand, stepL, stepR] = bufs.map((b) => bufToTexture(b, ISO_W, ISO_H));
     return [stand, stepL, stepR, stand, stand, stand, stand];
   };
   const frontRow = toRow(front);
