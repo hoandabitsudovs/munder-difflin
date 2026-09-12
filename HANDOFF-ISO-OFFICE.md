@@ -8,6 +8,16 @@
 
 ## 0 · Estado exacto (verificado 9 sept)
 
+> **ACTUALIZACIÓN 12 sept — mergeado upstream v0.5.2.** El fork ahora está sobre
+> `chaitanyagiri` **v0.5.2** (merge `6b1336b5`, sin conflictos: los 83 commits de
+> upstream no tocaron el office iso). `package.json` bumpeado a `0.5.2` para que
+> el título lo muestre (upstream deja su package.json en 0.4.6 aun en el tag).
+> **Backups pre-merge:** branch/tag `backup/pre-v0.5.2` + `backup-pre-v0.5.2` en
+> origin, y `~/Dashboard/munder-difflin-backup-pre-v0.5.2-20260912.tar.gz`.
+> Para actualizar de nuevo: `git fetch upstream --tags && git merge vX.Y.Z`
+> (los archivos del office iso no suelen chocar). Correr `npm install` con nvm 24
+> tras el merge.
+
 - Rama **`main`** en `~/Dashboard/munder-difflin`, árbol limpio, typecheck 0 errores.
 - Todo pusheado a **`origin`** = tu fork `hoandabitsudovs/munder-difflin` (`main` + rama `iso-art-and-retrofit-plan`). `upstream` = `chaitanyagiri/munder-difflin` (no tocado).
 - Último commit relevante: `2cb6504a` (iluminación ambiental). ~26 commits de esta línea de trabajo sobre `f4c6bd74`.
