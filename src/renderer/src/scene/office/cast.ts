@@ -7,8 +7,8 @@
 // sheets are no longer used for the cast. See assets/ATTRIBUTION.md.
 
 import { Texture } from 'pixi.js';
-import { paintPortrait } from './portraitArt'; // sceneFrameBufs/SCENE_* kept there as fallback
-import { isoSceneFrameBufs, ISO_W, ISO_H } from './isoCharArt';
+import { PORTRAIT_W, PORTRAIT_H } from './portraitArt'; // paintPortrait/sceneFrameBufs kept there as fallback
+import { isoSceneFrameBufs, isoPortraitBuf, ISO_W, ISO_H } from './isoCharArt';
 
 export type OfficeCharacterName =
   | 'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela'
@@ -126,5 +126,19 @@ export async function paintCastPortrait(
   name: OfficeCharacterName,
   scale = 2,
 ): Promise<void> {
-  paintPortrait(ctx, name, scale);
+  // Draw the iso chibi standing sprite, top-anchored + horizontally centered, so
+  // the card shows the head+torso (legs crop below) — the card now matches the
+  // floor character. Swap back to paintPortrait(ctx, name, scale) to restore the
+  // old top-down bust.
+  const { buf, w, h } = isoPortraitBuf(name);
+  const stage = document.createElement('canvas');
+  stage.width = w; stage.height = h;
+  const sctx = stage.getContext('2d')!;
+  const img = sctx.createImageData(w, h);
+  img.data.set(buf);
+  sctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, PORTRAIT_W * scale, PORTRAIT_H * scale);
+  const dx = Math.round(((PORTRAIT_W - w) / 2) * scale); // center the 20-wide sprite in the 18-wide frame
+  ctx.drawImage(stage, 0, 0, w, h, dx, 0, w * scale, h * scale);
 }

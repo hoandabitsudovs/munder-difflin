@@ -196,6 +196,13 @@ function frame(p: IsoParams, back: boolean, phase: 0 | 1 | 2): Uint8ClampedArray
   return buf;
 }
 
+/** The standing front sprite as a portrait source — the consumer top-anchors it
+ *  and crops the legs, so a card shows the iso chibi head+torso (matching the
+ *  floor sprites instead of the old top-down bust). */
+export function isoPortraitBuf(name: OfficeCharacterName): { buf: Uint8ClampedArray; w: number; h: number } {
+  return { buf: isoSceneFrameBufs(name).front[0], w: ISO_W, h: ISO_H };
+}
+
 /** Walk-phase frames (stand, step-L, step-R) for front + back, iso chibi style. */
 export function isoSceneFrameBufs(name: OfficeCharacterName): IsoFrames {
   let f = cache.get(name);
