@@ -194,8 +194,14 @@ function drawPiece(g: Graphics, p: { x: number; y: number; kind: Kind }): void {
     case 'desk': { const w = 0x8a714a; prism(g, x, y, 12, 6, 8, mixHex(w, 0xffffff, 0.14), shade(w, 0.72), shade(w, 0.55));
       diamond(g, x - 1, y - 18, 13, 8, 0x8fd6ea, 0.14);                                  // screen glow halo (monitor is on)
       g.rect(x - 7, y - 25, 14, 12).fill(0x14181e); g.rect(x - 6, y - 24, 12, 10).fill(0x1c2028); // bezel
-      g.rect(x - 5, y - 23, 10, 8).fill(0x5fd0e6); g.rect(x - 4, y - 22, 4, 2).fill(0xcaf2fa);     // lit screen + highlight
-      g.rect(x - 4, y - 19, 7, 1).fill(0x3fa8c0); g.rect(x - 4, y - 17, 4, 1).fill(0x3fa8c0);      // faint text lines on screen
+      // screen content varies per desk (deterministic by tile) so monitors aren't identical:
+      const scr = (p.x * 2 + p.y) % 3;
+      if (scr === 2) { g.rect(x - 5, y - 23, 10, 8).fill(0xe9edf2);                       // document — light page
+        for (let i = 0; i < 4; i++) g.rect(x - 4, y - 22 + i * 2, 2 + ((p.x + i * 3) % 6), 1).fill(0x8a97a5); }
+      else { g.rect(x - 5, y - 23, 10, 8).fill(0x142230);                                 // dark screen
+        if (scr === 0) for (let i = 0; i < 4; i++) g.rect(x - 4, y - 22 + i * 2, 2 + ((p.x + i * 2) % 6), 1).fill(i % 2 ? 0x4aa8c8 : 0x6ee07a); // code lines
+        else for (let i = 0; i < 4; i++) g.rect(x - 4 + i * 2, y - 16 - ((i * 3 + p.x) % 5), 1, 2 + ((i * 3 + p.x) % 5)).fill([0x5fd0e6, 0x6ee07a, 0xe0c040, 0xe07a6a][i]); } // bar chart
+      g.rect(x - 5, y - 23, 10, 1).fill(0x3a4a58); g.rect(x - 4, y - 22, 3, 1).fill(0xcaf2fa); // top edge + glare
       g.rect(x - 1, y - 13, 2, 3).fill(0x2a2f38);                                        // monitor stand
       g.rect(x - 7, y - 8, 10, 3).fill(0xdadde2); g.rect(x - 6, y - 7, 8, 1).fill(0xf0f2f5);       // keyboard
       g.rect(x + 5, y - 7, 2, 2).fill(0xdadde2);                                         // mouse
