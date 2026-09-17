@@ -1,5 +1,6 @@
 // Synthetic event stream so the avatars actually move while we wait on real tmux/hook wiring.
 
+import i18n from '@/i18n';
 import { useStore, type Agent, type StationKind, type ToolKind } from './store';
 
 const STATION_BY_TOOL: Record<ToolKind, StationKind> = {
@@ -11,49 +12,30 @@ const STATION_BY_TOOL: Record<ToolKind, StationKind> = {
   MCP: 'mcp'
 };
 
+// The visible text (`what` = action bubble, `thought` = sidebar) is localized via
+// i18n (office.demo.samples.<key>) so demo agents read in the app language; the
+// `lines` are terminal-style tool output and stay language-neutral.
 interface ToolSample {
+  key: string;             // i18n key under office.demo.samples
   tool: ToolKind;
-  what: string;            // short — used as the action text
   lines: string[];         // terminal stream output
-  thought: string;         // first-person assistant text, streamed in the sidebar
 }
 
 const TOOL_SAMPLES: ToolSample[] = [
-  {
-    tool: 'Read', what: 'reading SPEC.md',
-    lines: ['\x1b[36m● Read\x1b[0m SPEC.md', '   read 412 lines.'],
-    thought: "Pulling up the spec so I can confirm the state machine before touching the implementation."
-  },
-  {
-    tool: 'Edit', what: 'editing PixelPanel.tsx',
-    lines: ['\x1b[36m● Edit\x1b[0m src/renderer/src/components/PixelPanel.tsx', '   +14 / -3'],
-    thought: "Tightening up the panel border math — the inner stroke was a pixel off in inset mode."
-  },
-  {
-    tool: 'Bash', what: 'running tests',
-    lines: ['\x1b[36m● Bash\x1b[0m npm test', '   ✓ 24 passed'],
-    thought: "Running the renderer suite to make sure nothing regressed before I move on."
-  },
-  {
-    tool: 'WebFetch', what: 'fetching docs',
-    lines: ['\x1b[36m● WebFetch\x1b[0m https://docs.example.com/hooks', '   ok 200 (1.2kb)'],
-    thought: "Grabbing the hooks doc to double-check the PreToolUse payload shape — my memory of the field names is hazy."
-  },
-  {
-    tool: 'Glob', what: 'searching for skill files',
-    lines: ['\x1b[36m● Glob\x1b[0m **/*.skill.md', '   23 matches'],
-    thought: "Enumerating all the skill files so I can walk each one and look for stale script paths."
-  },
-  {
-    tool: 'TodoWrite', what: 'updating the todo board',
-    lines: ['\x1b[36m● TodoWrite\x1b[0m 4 items'],
-    thought: "Splitting the remaining work into four discrete tasks so I can track them as I go."
-  }
+  { key: 'read', tool: 'Read', lines: ['\x1b[36m● Read\x1b[0m SPEC.md', '   read 412 lines.'] },
+  { key: 'edit', tool: 'Edit', lines: ['\x1b[36m● Edit\x1b[0m src/renderer/src/components/PixelPanel.tsx', '   +14 / -3'] },
+  { key: 'bash', tool: 'Bash', lines: ['\x1b[36m● Bash\x1b[0m npm test', '   ✓ 24 passed'] },
+  { key: 'webfetch', tool: 'WebFetch', lines: ['\x1b[36m● WebFetch\x1b[0m https://docs.example.com/hooks', '   ok 200 (1.2kb)'] },
+  { key: 'glob', tool: 'Glob', lines: ['\x1b[36m● Glob\x1b[0m **/*.skill.md', '   23 matches'] },
+  { key: 'todowrite', tool: 'TodoWrite', lines: ['\x1b[36m● TodoWrite\x1b[0m 4 items'] }
 ];
 
 function pickSample() {
   return TOOL_SAMPLES[Math.floor(Math.random() * TOOL_SAMPLES.length)];
 }
+const sampleWhat = (s: ToolSample): string => i18n.t(`office.demo.samples.${s.key}.what`);
+const sampleThought = (s: ToolSample): string => i18n.t(`office.demo.samples.${s.key}.thought`);
+const headingTo = (station: StationKind): string => i18n.t('office.demo.headingTo', { station: i18n.t(`office.demo.stations.${station}`) });
 
 const TICK_MS = 1800;
 
@@ -73,7 +55,7 @@ function stepAgent(agent: Agent) {
       const station = STATION_BY_TOOL[sample.tool];
       updateAgent(agent.id, {
         status: 'thinking',
-        action: `heading to ${station}`,
+        action: headingTo(station),
         currentStation: station,
         progress: 1
       });
@@ -93,10 +75,10 @@ function stepAgent(agent: Agent) {
     const sample = pickSample();
     updateAgent(agent.id, {
       status: 'working',
-      action: sample.what,
+      action: sampleWhat(sample),
       carrying: tool,
       progress: Math.min(agent.progress + 1, 8),
-      recentAssistantText: sample.thought,
+      recentAssistantText: sampleThought(sample),
       recentTextTs: Date.now()
     });
     sample.lines.forEach(l => pushFeed(agent.id, l));
@@ -108,7 +90,7 @@ function stepAgent(agent: Agent) {
     if (Math.random() < 0.5) {
       updateAgent(agent.id, {
         status: 'thinking',
-        action: 'heading back to desk',
+        action: i18n.t('office.demo.headingBackToDesk'),
         currentStation: 'desk',
         progress: Math.min(agent.progress + 1, 8)
       });
@@ -118,7 +100,7 @@ function stepAgent(agent: Agent) {
       const station = STATION_BY_TOOL[sample.tool];
       updateAgent(agent.id, {
         status: 'thinking',
-        action: `heading to ${station}`,
+        action: headingTo(station),
         currentStation: station,
         progress: Math.min(agent.progress + 1, 8)
       });
@@ -167,9 +149,9 @@ export function startMockLoop() {
       if (a.status === 'thinking' && a.currentStation === 'desk' && Math.random() < 0.4) {
         updateAgent(a.id, {
           status: 'idle',
-          action: 'awaiting',
+          action: i18n.t('office.demo.awaiting'),
           carrying: undefined,
-          recentAssistantText: 'Done with that one. What next?',
+          recentAssistantText: i18n.t('office.demo.doneNext'),
           recentTextTs: Date.now()
         });
       }

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import i18n from '@/i18n';
 import type { AccentColorName } from '@/design/tokens';
 import type { OfficeCharacterName } from '@/scene/office/cast';
 import type { ThemeId } from '@/scene/office/themeRegistry';
@@ -507,7 +508,7 @@ function loadPersistedAgents(): Agent[] {
       ...a,
       progress: 0,
       status: 'idle',
-      action: 'reconnecting…',
+      action: i18n.t('office.activity.reconnecting'),
       currentStation: 'desk',
       carrying: undefined,
       recentTextTs: Date.now(),
@@ -825,7 +826,7 @@ export const useStore = create<State>((set, get) => ({
         archived: true,
         ptyId: undefined,
         status: 'idle',
-        action: 'archived',
+        action: i18n.t('office.activity.archived'),
         carrying: undefined,
         currentStation: undefined
       };

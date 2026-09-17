@@ -1,9 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import './i18n'; // MUST load before App/store so i18n is initialized when their modules run i18n.t
 import { App } from './App';
 import brandLogo from '@brand/logo.png?url';
 import './design/global.css';
-import './i18n';
 
 const favicon = document.createElement('link');
 favicon.rel = 'icon';

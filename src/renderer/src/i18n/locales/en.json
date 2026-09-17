@@ -785,7 +785,31 @@
       "compacting": "compacting context",
       "looping": "looping — breaker armed",
       "runningFloor": "running the floor",
-      "idle": "idle"
+      "idle": "idle",
+      "reconnecting": "reconnecting…",
+      "archived": "archived"
+    },
+    "demo": {
+      "headingTo": "heading to {{station}}",
+      "headingBackToDesk": "heading back to desk",
+      "awaiting": "awaiting",
+      "doneNext": "Done with that one. What next?",
+      "stations": {
+        "shelf": "shelf",
+        "terminal": "terminal",
+        "web": "web",
+        "board": "board",
+        "mcp": "mcp",
+        "desk": "desk"
+      },
+      "samples": {
+        "read": { "what": "reading SPEC.md", "thought": "Pulling up the spec so I can confirm the state machine before touching the implementation." },
+        "edit": { "what": "editing PixelPanel.tsx", "thought": "Tightening up the panel border math — the inner stroke was a pixel off in inset mode." },
+        "bash": { "what": "running tests", "thought": "Running the renderer suite to make sure nothing regressed before I move on." },
+        "webfetch": { "what": "fetching docs", "thought": "Grabbing the hooks doc to double-check the PreToolUse payload shape — my memory of the field names is hazy." },
+        "glob": { "what": "searching for skill files", "thought": "Enumerating all the skill files so I can walk each one and look for stale script paths." },
+        "todowrite": { "what": "updating the todo board", "thought": "Splitting the remaining work into four discrete tasks so I can track them as I go." }
+      }
     }
   },
   "setupPanel": {

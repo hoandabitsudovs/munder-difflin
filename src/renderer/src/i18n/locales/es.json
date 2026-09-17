@@ -785,7 +785,31 @@
       "compacting": "compactando contexto",
       "looping": "en bucle — cortacircuitos armado",
       "runningFloor": "manejando el piso",
-      "idle": "en espera"
+      "idle": "en espera",
+      "reconnecting": "reconectando…",
+      "archived": "archivado"
+    },
+    "demo": {
+      "headingTo": "yendo a {{station}}",
+      "headingBackToDesk": "volviendo al escritorio",
+      "awaiting": "esperando",
+      "doneNext": "Listo con esa. ¿Qué sigue?",
+      "stations": {
+        "shelf": "el estante",
+        "terminal": "la terminal",
+        "web": "la web",
+        "board": "el tablero",
+        "mcp": "MCP",
+        "desk": "el escritorio"
+      },
+      "samples": {
+        "read": { "what": "leyendo SPEC.md", "thought": "Abriendo la spec para confirmar la máquina de estados antes de tocar la implementación." },
+        "edit": { "what": "editando PixelPanel.tsx", "thought": "Ajustando la matemática del borde del panel — el trazo interno estaba un píxel corrido en modo inset." },
+        "bash": { "what": "corriendo pruebas", "thought": "Corriendo la suite del renderer para asegurarme de que nada haya regresado antes de seguir." },
+        "webfetch": { "what": "trayendo docs", "thought": "Agarrando el doc de hooks para revisar la forma del payload de PreToolUse — no me acuerdo bien los nombres de los campos." },
+        "glob": { "what": "buscando archivos de skills", "thought": "Enumerando todos los archivos de skills para recorrer cada uno y buscar rutas de scripts viejas." },
+        "todowrite": { "what": "actualizando el tablero de tareas", "thought": "Dividiendo el trabajo restante en cuatro tareas discretas para seguirlas a medida que avanzo." }
+      }
     }
   },
   "setupPanel": {
