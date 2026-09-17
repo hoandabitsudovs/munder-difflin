@@ -22,15 +22,40 @@ export function useHermesPoll(enabled: boolean) {
     let cancelled = false;
 
     const tick = async () => {
-      const running = await window.cth.hermesPollRunningProfiles().catch(() => [] as string[]);
+      // Two reads of the same read-only board: which profiles are running, and
+      // the task rows themselves (so an agent can show its REAL task title, and
+      // a blocked task can surface as "needs you" instead of a generic idle).
+      const [running, tasks] = await Promise.all([
+        window.cth.hermesPollRunningProfiles().catch(() => [] as string[]),
+        window.cth.hermesListTasks().catch(() => [])
+      ]);
       if (cancelled) return;
 
       const runningSet = new Set(running);
+      // Per profile, the most relevant task: running beats blocked beats the rest.
+      const rank = (s: string): number => (s === 'running' ? 3 : s === 'blocked' ? 2 : 1);
+      const byProfile = new Map<string, { status: string; title: string }>();
+      for (const t of tasks) {
+        if (!t.assignee) continue;
+        const cur = byProfile.get(t.assignee);
+        if (!cur || rank(t.status) > rank(cur.status)) byProfile.set(t.assignee, { status: t.status, title: t.title });
+      }
+
+      // Resolve each roster agent's on-floor state from its real board rows.
+      const resolve = (profile: string): { status: 'working' | 'blocked' | 'idle'; action: string; progress: number } => {
+        const info = byProfile.get(profile);
+        if (info?.status === 'running' || runningSet.has(profile)) {
+          return { status: 'working', action: info?.title ?? 'trabajando en Hermes', progress: 1 };
+        }
+        if (info?.status === 'blocked') return { status: 'blocked', action: info.title, progress: 1 };
+        return { status: 'idle', action: 'en espera', progress: 0 };
+      };
+
       const { agents, addAgent, updateAgent } = useStore.getState();
 
       for (const entry of HERMES_ROSTER) {
         if (!entry.hermesProfile) continue; // e.g. Recepcionista — no bot behind it
-        const isWorking = runningSet.has(entry.hermesProfile);
+        const next = resolve(entry.hermesProfile);
         const existing = agents.find((a) => a.id === entry.id);
 
         if (!existing) {
@@ -44,20 +69,19 @@ export function useHermesPoll(enabled: boolean) {
             department: entry.department,
             tmuxTarget: '',
             cwd: '',
-            status: isWorking ? 'working' : 'idle',
-            action: isWorking ? 'trabajando en Hermes' : 'en espera',
-            progress: isWorking ? 1 : 0,
+            status: next.status,
+            action: next.action,
+            progress: next.progress,
             currentStation: 'desk',
             recentTextTs: Date.now()
           });
           continue;
         }
 
-        const wasWorking = existing.status === 'working';
-        if (isWorking && !wasWorking) {
-          updateAgent(entry.id, { status: 'working', action: 'trabajando en Hermes', progress: 1 });
-        } else if (!isWorking && wasWorking) {
-          updateAgent(entry.id, { status: 'idle', action: 'en espera', progress: 0 });
+        // Update on any status OR action change, so a running agent's bubble
+        // tracks its current task title as the board moves.
+        if (existing.status !== next.status || existing.action !== next.action) {
+          updateAgent(entry.id, { status: next.status, action: next.action, progress: next.progress });
         }
       }
     };
