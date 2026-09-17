@@ -450,7 +450,7 @@ export function buildIsoRooms(): { floor: Container; depthItems: DepthItem[]; la
   // Labels always on top.
   const labels = new Container();
   for (const r of rooms) {
-    const label = r.name === 'waiting' ? 'SALA DE ESPERA' : r.name === 'lounge' ? 'LOUNGE' : r.name.toUpperCase();
+    const label = r.name === 'waiting' ? 'SALA DE ESPERA' : r.name === 'lounge' ? 'DESCANSO' : r.name.toUpperCase();
     const p = project(r.ix + r.iw / 2, r.iy);
     const t = new Text({ text: label, style: { fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold', fill: 0xf2eedd, stroke: { color: 0x1a1d29, width: 3 } } });
     t.anchor.set(0.5, 1);
