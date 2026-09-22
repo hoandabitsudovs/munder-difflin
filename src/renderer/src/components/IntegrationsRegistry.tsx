@@ -40,13 +40,21 @@ interface Draft {
   hasSecret: boolean; // an existing stored secret (edit)
   createdAt: number;
   secret: string;     // write-only input buffer
+  // OAuth (Fase 0.2) — present only for authType 'oauth'.
+  authorizationUrl: string;
+  tokenUrl: string;
+  clientId: string;
+  scopes: string;          // space/newline-separated in the UI
+  usesClientSecret: boolean;
+  clientSecret: string;    // write-only input buffer for the OAuth client secret
 }
 
 const AUTH_LABEL: Record<IntegrationAuthType, string> = {
   none: 'None (public API)',
   bearer: 'Bearer token',
   header: 'Custom header',
-  github: 'GitHub'
+  github: 'GitHub',
+  oauth: 'OAuth 2.0'
 };
 // Auth types a user may pick for a custom-REST integration.
 const CUSTOM_AUTH: IntegrationAuthType[] = ['none', 'bearer', 'header'];
@@ -54,8 +62,14 @@ const CUSTOM_AUTH: IntegrationAuthType[] = ['none', 'bearer', 'header'];
 // UI-only brand glyphs (Jim's templates carry no glyph). Falls back to label initials.
 const GLYPH: Record<string, { mono: string; bg: string }> = {
   github: { mono: 'Gh', bg: '#1A1320' },
-  'custom-rest': { mono: '{}', bg: '#2E9E5B' }
+  'custom-rest': { mono: '{}', bg: '#2E9E5B' },
+  oauth: { mono: '⚿', bg: '#3B5BA5' }
 };
+
+/** Split the UI scopes field (space- or newline-separated) into a scope array. */
+function parseScopes(s: string): string[] {
+  return s.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+}
 function glyphFor(kind: string, label: string): { mono: string; bg: string } {
   return GLYPH[kind] ?? { mono: (label.replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '··'), bg: '#6B5878' };
 }
@@ -83,14 +97,20 @@ function draftFromTemplate(t: IntegrationTemplate, now: number): Draft {
   return {
     isNew: true, id: slugify(t.idSuggestion || t.label), label: t.label, kind: t.kind,
     baseUrl: t.baseUrl, authType: t.authType, authHeader: t.authHeader ?? '',
-    enabled: true, hasSecret: false, createdAt: now, secret: ''
+    enabled: true, hasSecret: false, createdAt: now, secret: '',
+    authorizationUrl: t.oauth?.authorizationUrl ?? '', tokenUrl: t.oauth?.tokenUrl ?? '',
+    clientId: t.oauth?.clientId ?? '', scopes: (t.oauth?.scopes ?? []).join(' '),
+    usesClientSecret: t.oauth?.usesClientSecret ?? false, clientSecret: ''
   };
 }
 function draftFromRecord(r: IntegrationRecordView): Draft {
   return {
     isNew: false, id: r.id, label: r.label, kind: r.kind, baseUrl: r.baseUrl,
     authType: r.authType, authHeader: r.authHeader ?? '', enabled: r.enabled,
-    hasSecret: r.hasSecret, createdAt: r.createdAt, secret: ''
+    hasSecret: r.hasSecret, createdAt: r.createdAt, secret: '',
+    authorizationUrl: r.oauth?.authorizationUrl ?? '', tokenUrl: r.oauth?.tokenUrl ?? '',
+    clientId: r.oauth?.clientId ?? '', scopes: (r.oauth?.scopes ?? []).join(' '),
+    usesClientSecret: r.oauth?.usesClientSecret ?? false, clientSecret: ''
   };
 }
 
@@ -111,6 +131,12 @@ export function IntegrationsRegistry() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
+  // OAuth (Fase 0.2) configure-view state.
+  const [redirectUri, setRedirectUri] = useState('');
+  const [oauthConn, setOauthConn] = useState<{ connected: boolean; expiresAt?: number }>({ connected: false });
+  const [hasClientSecret, setHasClientSecret] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [showClientSecret, setShowClientSecret] = useState(false);
 
   const flash = (msg: string) => { setNote(msg); setTimeout(() => setNote(''), 2400); };
   const refresh = async () => setRecords(await integrationsClient.list());
@@ -139,12 +165,17 @@ export function IntegrationsRegistry() {
   const validate = (d: Draft): string | null => {
     if (!d.label.trim()) return tr('integrations.errLabel');
     if (!slugify(d.id || d.label)) return tr('integrations.errId');
-    if (d.kind === 'custom-rest') {
+    if (d.kind === 'custom-rest' || d.authType === 'oauth') {
       const u = d.baseUrl.trim();
       if (!u) return tr('integrations.errBaseUrl');
       if (!/^https:\/\//.test(u) && !/^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(u)) return tr('integrations.errBaseUrlFormat');
     }
     if (d.authType === 'header' && !/^[A-Za-z0-9-]{1,64}$/.test(d.authHeader.trim())) return tr('integrations.errHeader');
+    if (d.authType === 'oauth') {
+      if (!/^https:\/\//.test(d.authorizationUrl.trim())) return tr('integrations.errOauthAuthUrl');
+      if (!/^https:\/\//.test(d.tokenUrl.trim())) return tr('integrations.errOauthTokenUrl');
+      if (!d.clientId.trim()) return tr('integrations.errOauthClientId');
+    }
     return null;
   };
 
@@ -158,6 +189,13 @@ export function IntegrationsRegistry() {
       authType: d.authType,
       authHeader: d.authType === 'header' ? d.authHeader.trim() : undefined,
       secretRef: needsSecret(d.authType) ? `int:${id}` : undefined,
+      oauth: d.authType === 'oauth' ? {
+        authorizationUrl: d.authorizationUrl.trim(),
+        tokenUrl: d.tokenUrl.trim(),
+        clientId: d.clientId.trim(),
+        scopes: parseScopes(d.scopes),
+        usesClientSecret: d.usesClientSecret
+      } : undefined,
       enabled: d.enabled,
       createdAt: d.isNew ? now : d.createdAt,
       updatedAt: now
@@ -203,6 +241,65 @@ export function IntegrationsRegistry() {
     try { setCfgTest(await integrationsClient.test(draft.id)); }
     catch { setCfgTest({ ok: false, error: tr('integrations.testFailed') }); }
     finally { setTesting(false); }
+  };
+
+  // ── OAuth (Fase 0.2) — load status + redirect URI when configuring an oauth draft ──
+  const refreshOAuth = async (id: string) => {
+    const [st, hcs] = await Promise.all([
+      integrationsClient.oauthStatus(id),
+      integrationsClient.oauthHasClientSecret(id)
+    ]);
+    setOauthConn(st); setHasClientSecret(hcs);
+  };
+  useEffect(() => {
+    if (view !== 'configure' || !draft || draft.authType !== 'oauth') return;
+    let alive = true;
+    (async () => {
+      const uri = await integrationsClient.oauthRedirectUri();
+      if (!alive) return;
+      setRedirectUri(uri);
+      if (!draft.isNew) await refreshOAuth(draft.id);
+      else { setOauthConn({ connected: false }); setHasClientSecret(false); }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, draft?.id, draft?.authType, draft?.isNew]);
+
+  const onSaveClientSecret = async () => {
+    if (!draft || draft.isNew || !draft.clientSecret.trim()) return;
+    setBusy(true); setErr('');
+    try {
+      const res = await integrationsClient.oauthSetClientSecret(draft.id, draft.clientSecret.trim());
+      if (!res.ok) { setErr(res.error || tr('integrations.couldNotSave')); return; }
+      patch({ clientSecret: '' }); setShowClientSecret(false);
+      await refreshOAuth(draft.id);
+      flash(tr('integrations.oauthSecretSaved'));
+    } catch { setErr(tr('integrations.couldNotSave')); }
+    finally { setBusy(false); }
+  };
+  const onConnect = async () => {
+    if (!draft || draft.isNew) return;
+    setConnecting(true); setErr('');
+    try {
+      flash(tr('integrations.oauthOpening'));
+      const res = await integrationsClient.oauthBegin(draft.id);
+      if (!res.ok) { setErr(res.error || tr('integrations.oauthFailed')); return; }
+      await refreshOAuth(draft.id);
+      await refresh();
+      flash(tr('integrations.oauthConnected'));
+    } catch { setErr(tr('integrations.oauthFailed')); }
+    finally { setConnecting(false); }
+  };
+  const onDisconnect = async () => {
+    if (!draft || draft.isNew) return;
+    setBusy(true); setErr('');
+    try {
+      await integrationsClient.oauthDisconnect(draft.id);
+      await refreshOAuth(draft.id);
+      await refresh();
+      flash(tr('integrations.oauthDisconnected'));
+    } catch { setErr(tr('integrations.oauthFailed')); }
+    finally { setBusy(false); }
   };
 
   // ───────────────────────── GALLERY ─────────────────────────
@@ -270,8 +367,10 @@ export function IntegrationsRegistry() {
         {/* Base URL — editable for custom-rest, fixed for presets */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={fieldLabel}>{tr('integrations.baseUrl')}</span>
-          <input value={draft.baseUrl} onChange={(e) => patch({ baseUrl: e.target.value })} placeholder="https://api.example.com" readOnly={draft.kind !== 'custom-rest'} style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', opacity: draft.kind !== 'custom-rest' ? 0.7 : 1 }} />
-          {draft.kind !== 'custom-rest' && <span style={hint}>{tr('integrations.baseUrlHint', { label: tpl?.label ?? tr('integrations.preset') })}</span>}
+          {(() => { const editableBase = draft.kind === 'custom-rest' || draft.kind === 'oauth'; return (
+          <input value={draft.baseUrl} onChange={(e) => patch({ baseUrl: e.target.value })} placeholder="https://api.example.com" readOnly={!editableBase} style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', opacity: editableBase ? 1 : 0.7 }} />
+          ); })()}
+          {draft.kind === 'github' && <span style={hint}>{tr('integrations.baseUrlHint', { label: tpl?.label ?? tr('integrations.preset') })}</span>}
         </label>
 
         {/* Auth type — selectable only for custom-rest */}
@@ -298,8 +397,8 @@ export function IntegrationsRegistry() {
           </label>
         )}
 
-        {/* Secret — WRITE-ONLY (separate setSecret IPC) */}
-        {needsSecret(draft.authType) && (
+        {/* Secret — WRITE-ONLY (separate setSecret IPC). OAuth has its own panel below. */}
+        {needsSecret(draft.authType) && draft.authType !== 'oauth' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={fieldLabel}>{secretLabel}</span>
             {showSavedPill ? (
@@ -319,6 +418,75 @@ export function IntegrationsRegistry() {
                 {tpl?.secretHelp && <span style={hint}>{tpl.secretHelp}</span>}
               </>
             )}
+          </div>
+        )}
+
+        {/* OAuth 2.0 config + connect (Fase 0.2) */}
+        {draft.authType === 'oauth' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12, background: 'var(--cth-cream-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)' }}>
+            <span style={fieldLabel}>{tr('integrations.oauthConfig')}</span>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={hint}>{tr('integrations.oauthAuthUrl')}</span>
+              <input value={draft.authorizationUrl} onChange={(e) => patch({ authorizationUrl: e.target.value })} placeholder="https://provider.com/oauth/authorize" style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={hint}>{tr('integrations.oauthTokenUrl')}</span>
+              <input value={draft.tokenUrl} onChange={(e) => patch({ tokenUrl: e.target.value })} placeholder="https://provider.com/oauth/token" style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={hint}>{tr('integrations.oauthClientId')}</span>
+              <input value={draft.clientId} onChange={(e) => patch({ clientId: e.target.value })} placeholder="client id" style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={hint}>{tr('integrations.oauthScopes')}</span>
+              <input value={draft.scopes} onChange={(e) => patch({ scopes: e.target.value })} placeholder={tr('integrations.oauthScopesPlaceholder')} style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }} />
+            </label>
+
+            {/* Redirect URI to register with the provider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={hint}>{tr('integrations.oauthRedirectUri')}</span>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <code style={{ flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 12, color: 'var(--cth-ink-700)', background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', padding: '6px 8px', overflowWrap: 'anywhere' }}>{redirectUri || '…'}</code>
+                <PixelButton variant="secondary" size="sm" onClick={() => { if (redirectUri) void window.cth.copyToClipboard(redirectUri); }} disabled={!redirectUri}>{tr('common.copy')}</PixelButton>
+              </div>
+              <span style={hint}>{tr('integrations.oauthRedirectHint')}</span>
+            </div>
+
+            {/* Confidential client → client secret (write-only) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PixelButton variant={draft.usesClientSecret ? 'primary' : 'secondary'} size="sm" onClick={() => patch({ usesClientSecret: !draft.usesClientSecret })}>{draft.usesClientSecret ? tr('common.on') : tr('common.off')}</PixelButton>
+              <span style={hint}>{tr('integrations.oauthUsesClientSecret')}</span>
+            </div>
+            {draft.usesClientSecret && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={hint}>{tpl?.secretLabel || tr('integrations.oauthClientSecret')}{hasClientSecret ? ` · ${tr('integrations.saved')}` : ''}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input type={showClientSecret ? 'text' : 'password'} value={draft.clientSecret} onChange={(e) => patch({ clientSecret: e.target.value })} placeholder={hasClientSecret ? tr('integrations.oauthReplaceSecret') : tr('integrations.oauthClientSecret')} autoComplete="off" disabled={draft.isNew} style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', opacity: draft.isNew ? 0.6 : 1 }} />
+                  <PixelButton variant="secondary" size="sm" onClick={() => setShowClientSecret((s) => !s)} disabled={!draft.clientSecret}>{showClientSecret ? tr('common.hide') : tr('common.show')}</PixelButton>
+                  <PixelButton variant="secondary" size="sm" onClick={() => { void onSaveClientSecret(); }} disabled={draft.isNew || busy || !draft.clientSecret.trim()}>{tr('common.save')}</PixelButton>
+                </div>
+              </div>
+            )}
+
+            {/* Connect / disconnect */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {oauthConn.connected ? (
+                  <>
+                    <span style={{ fontSize: 12, color: 'var(--cth-mint-700, #1f7a4d)' }}>● {tr('integrations.oauthConnectedStatus')}</span>
+                    <PixelButton variant="secondary" size="sm" onClick={() => { void onConnect(); }} disabled={draft.isNew || connecting}>{connecting ? '…' : tr('integrations.oauthReconnect')}</PixelButton>
+                    <PixelButton variant="ghost" size="sm" onClick={() => { void onDisconnect(); }} disabled={busy}>{tr('integrations.oauthDisconnect')}</PixelButton>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>○ {tr('integrations.oauthNotConnected')}</span>
+                    <PixelButton variant="primary" size="sm" onClick={() => { void onConnect(); }} disabled={draft.isNew || connecting || (draft.usesClientSecret && !hasClientSecret)}>{connecting ? tr('integrations.oauthConnecting') : tr('integrations.oauthConnect')}</PixelButton>
+                  </>
+                )}
+              </div>
+              <span style={hint}>{draft.isNew ? tr('integrations.oauthSaveFirst') : draft.usesClientSecret && !hasClientSecret ? tr('integrations.oauthNeedSecretFirst') : tr('integrations.oauthConnectHint')}</span>
+            </div>
           </div>
         )}
 

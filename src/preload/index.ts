@@ -4,6 +4,8 @@ import type { HireManifest } from '../shared/hire';
 export type { HireManifest } from '../shared/hire';
 import type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
 export type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
+import type { UserProfile } from '../shared/userProfile';
+export type { UserProfile } from '../shared/userProfile';
 import type { UpdateStatus } from '../shared/updateState';
 export type { UpdateStatus } from '../shared/updateState';
 import type { ToolStatus } from '../shared/toolCatalog';
@@ -263,6 +265,8 @@ export interface HarnessConfig {
   /** Onboarding audience ('technical' | 'non-technical'); drives onboarding copy.
    *  Mirrors src/main/config.ts. */
   audience?: 'technical' | 'non-technical';
+  /** Global user & business profile (Fase 0.1). Mirrors src/main/config.ts. */
+  userProfile?: UserProfile;
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
   recentHives?: string[];
@@ -1295,6 +1299,20 @@ const api = {
     ipcRenderer.invoke('integrations:remove', req),
   integrationsTest: (req: { id: string; path?: string }): Promise<{ ok: boolean; status?: number; error?: string }> =>
     ipcRenderer.invoke('integrations:test', req),
+  // OAuth connectors (Fase 0.2). The token bundle never crosses IPC; the client secret
+  // is WRITE-ONLY (set + presence boolean), and connect/status/disconnect drive the UI.
+  integrationsOAuthRedirectUri: (): Promise<string> =>
+    ipcRenderer.invoke('integrations:oauthRedirectUri'),
+  integrationsOAuthSetClientSecret: (req: { id: string; secret: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('integrations:oauthSetClientSecret', req),
+  integrationsOAuthHasClientSecret: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('integrations:oauthHasClientSecret', id),
+  integrationsOAuthStatus: (id: string): Promise<{ connected: boolean; expiresAt?: number }> =>
+    ipcRenderer.invoke('integrations:oauthStatus', id),
+  integrationsOAuthBegin: (req: { id: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('integrations:oauthBegin', req),
+  integrationsOAuthDisconnect: (req: { id: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('integrations:oauthDisconnect', req),
   // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
   // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
   // the plaintext. Keys are materialized MAIN-ONLY at spawn.

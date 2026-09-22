@@ -23,7 +23,8 @@ import {
   type IntegrationRecord,
   validateIntegrationRecord,
   authTypeNeedsSecret,
-  secretRefFor
+  secretRefFor,
+  oauthClientSecretRefFor
 } from '../shared/integrations';
 import { readConfig, writeConfig } from './config';
 
@@ -66,11 +67,13 @@ export function upsertRecord(input: unknown): { ok: true; record: IntegrationRec
   return { ok: true, record };
 }
 
-/** Remove a record AND its stored secret. */
+/** Remove a record AND every stored secret it owns (its credential / OAuth token
+ *  bundle, and — for OAuth — its client secret). Idempotent for non-OAuth. */
 export function removeRecord(id: string): { ok: boolean } {
   const next = listRecords().filter((r) => r.id !== id);
   writeConfig({ integrations: next });
   deleteSecret(secretRefFor(id));
+  deleteSecret(oauthClientSecretRefFor(id));
   return { ok: true };
 }
 

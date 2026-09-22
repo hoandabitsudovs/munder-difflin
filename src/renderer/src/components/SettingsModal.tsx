@@ -20,6 +20,8 @@ import { Icon } from './Icon';
 import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
+import { UserProfileSection } from './UserProfileSection';
+import { sanitizeUserProfile, type UserProfile } from '@shared/userProfile';
 import { AiEnginesSettings } from './AiEnginesSettings';
 import { REALTIME_MODEL } from '@shared/realtimePricing';
 import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
@@ -304,6 +306,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const maxTurnsPatch = (): Partial<HarnessConfig> => {
     const n = maxTurnsVal.trim() === '' ? undefined : Number(maxTurnsVal);
     return { maxTurns: Number.isFinite(n as number) && (n as number) > 0 ? Math.round(n as number) : undefined } as Partial<HarnessConfig>;
+  };
+  // User & business profile (Fase 0.1) — staged like the rest of General, saved by
+  // the footer. The draft is sanitized into the pending patch so blanks drop out.
+  const [profileDraft, setProfileDraft] = useState<UserProfile>(sanitizeUserProfile(config.userProfile));
+  const onProfileChange = (next: UserProfile): void => {
+    setProfileDraft(next);
+    stage({ userProfile: sanitizeUserProfile(next) });
   };
   const [semMemOn, setSemMemOn] = useState<boolean>(cfgX.semanticMemory !== false);
   const toggleSemMem = async () => {
@@ -1003,6 +1012,12 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           <PixelButton variant="secondary" size="sm" onClick={pickNewHome}>{t('settings.change')}</PixelButton>
                         </div>
                       </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
+
+                      {/* User & business profile (Fase 0.1) — the global "who you
+                          work for" context, injected into every agent's prompt. */}
+                      <UserProfileSection value={profileDraft} onChange={onProfileChange} />
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 

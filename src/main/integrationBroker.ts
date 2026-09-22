@@ -30,7 +30,8 @@ import {
   type IntegrationRecord,
   buildAuthHeaders,
   resolveUpstreamUrl,
-  authTypeNeedsSecret
+  authTypeNeedsSecret,
+  isOAuth
 } from '../shared/integrations';
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB request-body cap
@@ -63,6 +64,10 @@ export interface IntegrationBrokerDeps {
   getRecord: (id: string) => IntegrationRecord | undefined;
   /** Decrypt a secret by ref (injected — the secret store). Main-internal. */
   getSecret: (secretRef: string | undefined) => string | undefined;
+  /** Resolve a LIVE OAuth access token for an integration id (injected — the OAuth
+   *  token manager, which refreshes on demand). Required for `authType: 'oauth'`
+   *  records; undefined result ⇒ not connected (broker returns 503 no_secret). */
+  getOAuthAccessToken?: (id: string) => Promise<string | undefined>;
 }
 
 /** True for IPv4 loopback (127.0.0.0/8) and IPv6 ::1 (incl. v4-mapped). Mirrors slack.ts. */
@@ -200,8 +205,10 @@ export class IntegrationBroker {
     if (!upstream) return IntegrationBroker.sendError(res, 400, 'bad_request', 'invalid or out-of-bounds path');
 
     // 7) Secret (decrypted ONLY here, used ONLY to inject the upstream header).
+    //    OAuth tokens are resolved ASYNC (may refresh) inside forward(); every other
+    //    secret auth type is a synchronous store read here.
     let secret: string | undefined;
-    if (authTypeNeedsSecret(rec.authType)) {
+    if (authTypeNeedsSecret(rec.authType) && !isOAuth(rec.authType)) {
       secret = this.deps.getSecret(rec.secretRef);
       if (!secret) return IntegrationBroker.sendError(res, 503, 'no_secret', 'no secret configured for this integration');
     }
@@ -216,6 +223,12 @@ export class IntegrationBroker {
     upstream: URL,
     secret: string | undefined
   ): Promise<void> {
+    // OAuth: resolve a live access token now (may refresh). Done here rather than in
+    // handle() because it is async; undefined ⇒ not connected / refresh failed.
+    if (isOAuth(rec.authType)) {
+      secret = this.deps.getOAuthAccessToken ? await this.deps.getOAuthAccessToken(rec.id) : undefined;
+      if (!secret) return IntegrationBroker.sendError(res, 503, 'no_secret', 'integration is not connected (OAuth)');
+    }
     // Buffer the request body with a hard cap (write methods).
     const method = (req.method ?? 'GET').toUpperCase();
     const hasBody = method !== 'GET' && method !== 'HEAD';

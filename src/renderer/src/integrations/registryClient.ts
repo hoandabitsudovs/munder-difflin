@@ -25,14 +25,18 @@
 import {
   INTEGRATION_TEMPLATES,
   authTypeNeedsSecret,
+  isOAuth,
   secretRefFor,
   validateIntegrationRecord,
   type IntegrationRecord,
   type IntegrationTemplate
 } from '@shared/integrations';
 
-export type { IntegrationRecord, IntegrationTemplate } from '@shared/integrations';
+export type { IntegrationRecord, IntegrationTemplate, OAuthConfig } from '@shared/integrations';
 export type { IntegrationKind, IntegrationAuthType } from '@shared/integrations';
+
+/** OAuth connection status for the UI (no token value ever crosses IPC). */
+export interface OAuthStatus { connected: boolean; expiresAt?: number }
 
 /** The renderer-visible record: secretRef is redacted to a presence boolean.
  *  Matches main `integrations.listRecordsRedacted()`. */
@@ -54,6 +58,13 @@ export interface IntegrationsClient {
   save(record: IntegrationRecord, secret?: string): Promise<{ ok: boolean; error?: string }>;
   remove(id: string): Promise<{ ok: boolean }>;
   test(id: string): Promise<TestResult>;
+  // OAuth (Fase 0.2)
+  oauthRedirectUri(): Promise<string>;
+  oauthSetClientSecret(id: string, secret: string): Promise<{ ok: boolean; error?: string }>;
+  oauthHasClientSecret(id: string): Promise<boolean>;
+  oauthStatus(id: string): Promise<OAuthStatus>;
+  oauthBegin(id: string): Promise<{ ok: boolean; error?: string }>;
+  oauthDisconnect(id: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 // The preload bridge Jim exposes (Deliverable 2). Channels are fixed by §6;
@@ -65,6 +76,12 @@ interface IntegrationsBridge {
   integrationsSetSecret(req: { id: string; secret: string }): Promise<{ ok: boolean; error?: string }>;
   integrationsRemove(req: { id: string }): Promise<{ ok: boolean }>;
   integrationsTest(req: { id: string; path?: string }): Promise<TestResult>;
+  integrationsOAuthRedirectUri(): Promise<string>;
+  integrationsOAuthSetClientSecret(req: { id: string; secret: string }): Promise<{ ok: boolean; error?: string }>;
+  integrationsOAuthHasClientSecret(id: string): Promise<boolean>;
+  integrationsOAuthStatus(id: string): Promise<OAuthStatus>;
+  integrationsOAuthBegin(req: { id: string }): Promise<{ ok: boolean; error?: string }>;
+  integrationsOAuthDisconnect(req: { id: string }): Promise<{ ok: boolean; error?: string }>;
 }
 
 function liveBridge(): IntegrationsBridge | undefined {
@@ -79,10 +96,17 @@ function liveBridge(): IntegrationsBridge | undefined {
 
 let mockRecords: IntegrationRecord[] = [];
 const mockSecret = new Set<string>(); // secretRef membership only — never values
+const mockClientSecret = new Set<string>(); // oauth client-secret presence (ids)
+const mockConnected = new Set<string>(); // oauth "connected" (token bundle present) ids
 
 function redact(r: IntegrationRecord): IntegrationRecordView {
   const { secretRef, ...rest } = r;
-  return { ...rest, hasSecret: !!secretRef && mockSecret.has(secretRef) };
+  // For OAuth, "hasSecret" means a stored token bundle == connected (mirrors main,
+  // where secretRefFor(id) holds the bundle). Otherwise it is the raw credential.
+  const hasSecret = isOAuth(r.authType)
+    ? mockConnected.has(r.id)
+    : !!secretRef && mockSecret.has(secretRef);
+  return { ...rest, hasSecret };
 }
 
 const mockClient: IntegrationsClient = {
@@ -96,12 +120,14 @@ const mockClient: IntegrationsClient = {
     const full: IntegrationRecord = { ...v.value, createdAt: prev?.createdAt ?? now, updatedAt: now };
     if (prev) mockRecords = mockRecords.map((r) => (r.id === full.id ? full : r));
     else mockRecords.push(full);
-    if (secret && secret.length > 0 && full.secretRef) mockSecret.add(full.secretRef);
+    // OAuth never routes a secret through here (client secret + connect are separate).
+    if (secret && secret.length > 0 && full.secretRef && !isOAuth(full.authType)) mockSecret.add(full.secretRef);
     return Promise.resolve({ ok: true });
   },
   remove: (id) => {
     const r = mockRecords.find((x) => x.id === id);
     if (r?.secretRef) mockSecret.delete(r.secretRef);
+    mockClientSecret.delete(id); mockConnected.delete(id);
     mockRecords = mockRecords.filter((x) => x.id !== id);
     return Promise.resolve({ ok: true });
   },
@@ -109,11 +135,22 @@ const mockClient: IntegrationsClient = {
     const r = mockRecords.find((x) => x.id === id);
     if (!r) return Promise.resolve({ ok: false, error: 'unknown integration' });
     if (!r.enabled) return Promise.resolve({ ok: false, error: 'integration is disabled' });
-    if (authTypeNeedsSecret(r.authType) && !(r.secretRef && mockSecret.has(r.secretRef))) {
+    if (isOAuth(r.authType) && !mockConnected.has(r.id)) {
+      return Promise.resolve({ ok: false, status: 503, error: 'not connected (OAuth)' });
+    }
+    if (!isOAuth(r.authType) && authTypeNeedsSecret(r.authType) && !(r.secretRef && mockSecret.has(r.secretRef))) {
       return Promise.resolve({ ok: false, status: 503, error: 'no secret set' });
     }
     return Promise.resolve({ ok: true, status: 200 });
-  }
+  },
+  oauthRedirectUri: () => Promise.resolve('http://127.0.0.1:42813/oauth/callback'),
+  oauthSetClientSecret: (id, secret) => { if (secret) mockClientSecret.add(id); return Promise.resolve({ ok: true }); },
+  oauthHasClientSecret: (id) => Promise.resolve(mockClientSecret.has(id)),
+  oauthStatus: (id) => Promise.resolve({ connected: mockConnected.has(id) }),
+  // Dev fallback can't run a real browser flow — simulate a successful connect so the
+  // UI is exercisable. The real path (below) runs the actual PKCE flow in main.
+  oauthBegin: (id) => { mockConnected.add(id); return Promise.resolve({ ok: true }); },
+  oauthDisconnect: (id) => { mockConnected.delete(id); return Promise.resolve({ ok: true }); }
 };
 
 // ───────────────────────── exported client (real → mock fallback) ─────────────────────────
@@ -132,7 +169,9 @@ export const integrationsClient: IntegrationsClient = {
     if (!b) return mockClient.save(record, secret);
     const up = await b.integrationsUpsert(record);
     if (!up.ok) return { ok: false, error: up.error };
-    if (secret && secret.length > 0) {
+    // OAuth records never carry their secret through here — the client secret is set
+    // via oauthSetClientSecret and the token bundle is minted by the connect flow.
+    if (secret && secret.length > 0 && !isOAuth(record.authType)) {
       const ss = await b.integrationsSetSecret({ id: record.id, secret });
       if (!ss.ok) return { ok: false, error: ss.error };
     }
@@ -145,6 +184,30 @@ export const integrationsClient: IntegrationsClient = {
   test: (id) => {
     const b = liveBridge();
     return b ? b.integrationsTest({ id }) : mockClient.test(id);
+  },
+  oauthRedirectUri: () => {
+    const b = liveBridge();
+    return b ? b.integrationsOAuthRedirectUri() : mockClient.oauthRedirectUri();
+  },
+  oauthSetClientSecret: (id, secret) => {
+    const b = liveBridge();
+    return b ? b.integrationsOAuthSetClientSecret({ id, secret }) : mockClient.oauthSetClientSecret(id, secret);
+  },
+  oauthHasClientSecret: (id) => {
+    const b = liveBridge();
+    return b ? b.integrationsOAuthHasClientSecret(id) : mockClient.oauthHasClientSecret(id);
+  },
+  oauthStatus: (id) => {
+    const b = liveBridge();
+    return b ? b.integrationsOAuthStatus(id) : mockClient.oauthStatus(id);
+  },
+  oauthBegin: (id) => {
+    const b = liveBridge();
+    return b ? b.integrationsOAuthBegin({ id }) : mockClient.oauthBegin(id);
+  },
+  oauthDisconnect: (id) => {
+    const b = liveBridge();
+    return b ? b.integrationsOAuthDisconnect({ id }) : mockClient.oauthDisconnect(id);
   }
 };
 

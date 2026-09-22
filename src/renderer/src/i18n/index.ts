@@ -18,6 +18,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { DEFAULT_GOD_NAME } from '@shared/godIdentity';
+import { profileToInterpolationVars, type UserProfile } from '@shared/userProfile';
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
 import ar from './locales/ar.json';
@@ -91,6 +92,30 @@ export function setGodName(name: string | undefined | null): void {
   i18n.emit('languageChanged', i18n.language);
 }
 
+/**
+ * Keep i18n's user-profile variables (`{{userName}}`, `{{userBusiness}}`, …)
+ * pointed at the live profile.
+ *
+ * Exactly the mechanism `setGodName` uses for `{{godName}}`: the values ride
+ * i18next DEFAULT VARIABLES, so any localized string can mention the user (or the
+ * business) without its call site passing anything, and a rename/edit reaches
+ * every such string at once. Unset fields resolve to '' (see
+ * profileToInterpolationVars) rather than leaving a literal `{{userBusiness}}`.
+ */
+export function setUserProfileVars(profile: UserProfile | undefined | null): void {
+  const next = profileToInterpolationVars(profile);
+  const interpolation = i18n.options.interpolation ?? (i18n.options.interpolation = {});
+  const vars = interpolation.defaultVariables ?? (interpolation.defaultVariables = {});
+  let changed = false;
+  for (const [k, v] of Object.entries(next)) {
+    if (vars[k] !== v) { vars[k] = v; changed = true; }
+  }
+  if (!changed) return;
+  // Same as setGodName: nudge react-i18next so strings that mention the profile
+  // re-render on an edit even if nothing else changed.
+  i18n.emit('languageChanged', i18n.language);
+}
+
 /** The saved choice, or English. Never the OS locale — see the note above. */
 function detectLanguage(): string {
   try {
@@ -124,7 +149,16 @@ void i18n
     react: { useSuspense: false },
     // `defaultVariables` is what lets every {{godName}} string resolve without
     // its call site knowing god's name. setGodName() keeps it current.
-    interpolation: { escapeValue: false, defaultVariables: { godName: DEFAULT_GOD_NAME } },
+    // `defaultVariables` also seeds the user-profile vars empty, so a string that
+    // mentions the profile before it is set renders blank, never `{{userBusiness}}`.
+    // setUserProfileVars() keeps them current (mirrors setGodName / {{godName}}).
+    interpolation: {
+      escapeValue: false,
+      defaultVariables: {
+        godName: DEFAULT_GOD_NAME,
+        userName: '', userRole: '', userBusiness: '', userBusinessContext: '', userGoals: '', userStyle: ''
+      }
+    },
     returnNull: false
   });
 

@@ -21,7 +21,7 @@
  * Full contract: hive/docs/integrations-spec.md.
  */
 
-export type IntegrationKind = 'github' | 'custom-rest';
+export type IntegrationKind = 'github' | 'custom-rest' | 'oauth';
 
 /** How the broker injects credentials when forwarding to the integration's baseUrl.
  *  This is the ONLY auth-injection vocabulary; the secret is supplied by the broker
@@ -30,7 +30,34 @@ export type IntegrationAuthType =
   | 'none'    // public API — inject nothing
   | 'bearer'  // Authorization: Bearer <secret>
   | 'header'  // <authHeader>: <secret>   (authHeader required)
-  | 'github'; // Authorization: Bearer <secret> + GitHub API headers
+  | 'github'  // Authorization: Bearer <secret> + GitHub API headers
+  | 'oauth';  // Authorization: Bearer <access token>, managed by the OAuth token manager
+              // (authorization-code + PKCE; the broker materializes a live, auto-refreshed
+              //  access token — see src/main/oauthManager.ts). Requires an `oauth` config.
+
+/** OAuth 2.0 authorization-code (+ PKCE) configuration for an `authType: 'oauth'`
+ *  integration. Non-secret metadata only: it rides the record in config.json. The
+ *  refreshable token bundle lives ENCRYPTED under the record's secretRef, and the
+ *  optional client secret under `oauthClientSecretRefFor(id)` — never here. */
+export interface OAuthConfig {
+  /** Provider authorization endpoint (where the user consents). https only. */
+  authorizationUrl: string;
+  /** Provider token endpoint (code→token exchange + refresh). https only. */
+  tokenUrl: string;
+  /** Public OAuth client id the user registered with the provider. Not a secret. */
+  clientId: string;
+  /** Requested scopes. */
+  scopes: string[];
+  /** True when the provider is a CONFIDENTIAL client that also needs a client
+   *  secret at the token endpoint (e.g. Notion, Google). The secret is stored
+   *  encrypted under oauthClientSecretRefFor(id), never in this record. PKCE is
+   *  always used regardless. */
+  usesClientSecret?: boolean;
+  /** Extra static query params appended to the authorization URL (e.g. Google's
+   *  `access_type=offline` / `prompt=consent` to get a refresh token, Notion's
+   *  `owner=user`). Values are non-secret. */
+  authParams?: Record<string, string>;
+}
 
 /** A registered integration. METADATA ONLY — carries NO secret value, only a
  *  `secretRef` handle. Safe to persist in config.json and cross IPC to the renderer. */
@@ -51,6 +78,10 @@ export interface IntegrationRecord {
   /** HANDLE into the encrypted secret store; NEVER the secret. Present iff
    *  authType !== 'none'. Convention: `int:<id>`. */
   secretRef?: string;
+  /** OAuth config — REQUIRED iff authType === 'oauth', forbidden otherwise.
+   *  Non-secret metadata; the token bundle + optional client secret are encrypted
+   *  under separate refs. */
+  oauth?: OAuthConfig;
   /** Consent gate. A worker can reach an integration ONLY when enabled. */
   enabled: boolean;
   /** epoch ms. */
@@ -78,23 +109,83 @@ export interface IntegrationTemplate {
   docsUrl?: string;
   /** Default slug seed. */
   idSuggestion: string;
+  /** For `authType: 'oauth'` templates — the default OAuth endpoints/scopes. The
+   *  user still supplies their own clientId (and secret when usesClientSecret). */
+  oauth?: OAuthConfig;
 }
 
 /** Integration id: lowercase slug, 2–40 chars, no leading/trailing hyphen. */
 export const INTEGRATION_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 /** A header name the broker may inject under (authType 'header'). */
 export const HEADER_NAME_RE = /^[A-Za-z0-9-]{1,64}$/;
-export const ALL_AUTH_TYPES: readonly IntegrationAuthType[] = ['none', 'bearer', 'header', 'github'];
-export const ALL_KINDS: readonly IntegrationKind[] = ['github', 'custom-rest'];
+export const ALL_AUTH_TYPES: readonly IntegrationAuthType[] = ['none', 'bearer', 'header', 'github', 'oauth'];
+export const ALL_KINDS: readonly IntegrationKind[] = ['github', 'custom-rest', 'oauth'];
 
-/** The secretRef handle for an integration id (1:1). */
+/** The secretRef handle for an integration id (1:1). For `oauth` this ref holds the
+ *  encrypted TOKEN BUNDLE (access/refresh/expiry JSON); for the other secret auth
+ *  types it holds the raw credential. */
 export function secretRefFor(id: string): string {
   return `int:${id}`;
 }
 
-/** True iff this auth type needs a stored secret. */
+/** The secretRef handle for an OAuth integration's optional CLIENT SECRET (confidential
+ *  clients). Kept distinct from the token-bundle ref above so disconnecting (clearing
+ *  the tokens) never wipes the app registration the user configured. */
+export function oauthClientSecretRefFor(id: string): string {
+  return `int-cs:${id}`;
+}
+
+/** True iff this auth type needs a stored secret. (OAuth needs a stored token bundle.) */
 export function authTypeNeedsSecret(t: IntegrationAuthType): boolean {
   return t !== 'none';
+}
+
+/** True iff this auth type is OAuth (broker resolves a live access token instead of
+ *  injecting a static stored secret). */
+export function isOAuth(t: IntegrationAuthType): boolean {
+  return t === 'oauth';
+}
+
+/** Validate an OAuthConfig. Fail-closed; https-only endpoints; clientId + ≥1 scope. */
+export function validateOAuthConfig(
+  cfg: unknown
+): { ok: true; value: OAuthConfig } | { ok: false; error: string } {
+  if (!cfg || typeof cfg !== 'object') return { ok: false, error: 'oauth config must be an object' };
+  const c = cfg as Record<string, unknown>;
+  const httpsOnly = (v: unknown, name: string): string | null => {
+    if (typeof v !== 'string' || !v.trim()) return `${name} is required`;
+    let u: URL;
+    try { u = new URL(v.trim()); } catch { return `${name} must be a valid URL`; }
+    if (u.protocol !== 'https:') return `${name} must be https`;
+    return null;
+  };
+  const authErr = httpsOnly(c.authorizationUrl, 'authorizationUrl');
+  if (authErr) return { ok: false, error: authErr };
+  const tokErr = httpsOnly(c.tokenUrl, 'tokenUrl');
+  if (tokErr) return { ok: false, error: tokErr };
+  const clientId = typeof c.clientId === 'string' ? c.clientId.trim() : '';
+  if (!clientId || clientId.length > 512) return { ok: false, error: 'clientId is required (<= 512 chars)' };
+  const scopesRaw = Array.isArray(c.scopes) ? c.scopes : [];
+  const scopes = scopesRaw.filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.trim());
+  let authParams: Record<string, string> | undefined;
+  if (c.authParams != null) {
+    if (typeof c.authParams !== 'object') return { ok: false, error: 'authParams must be an object' };
+    authParams = {};
+    for (const [k, v] of Object.entries(c.authParams as Record<string, unknown>)) {
+      if (typeof v === 'string') authParams[k] = v;
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      authorizationUrl: String(c.authorizationUrl).trim(),
+      tokenUrl: String(c.tokenUrl).trim(),
+      clientId,
+      scopes,
+      usesClientSecret: c.usesClientSecret === true,
+      ...(authParams && Object.keys(authParams).length ? { authParams } : {})
+    }
+  };
 }
 
 /**
@@ -138,11 +229,21 @@ export function validateIntegrationRecord(
     return { ok: false, error: "authHeader is only valid when authType === 'header'" };
   }
 
+  // OAuth: require a valid `oauth` config; forbid it for every other auth type.
+  let oauth: OAuthConfig | undefined;
+  if (authType === 'oauth') {
+    const o = validateOAuthConfig(r.oauth);
+    if (!o.ok) return { ok: false, error: `oauth: ${o.error}` };
+    oauth = o.value;
+  } else if (r.oauth != null) {
+    return { ok: false, error: "oauth config is only valid when authType === 'oauth'" };
+  }
+
   const needsSecret = authTypeNeedsSecret(authType);
   const secretRef = needsSecret ? secretRefFor(id) : undefined;
   const enabled = r.enabled === true;
 
-  return { ok: true, value: { id, label, kind, baseUrl, authType, authHeader, secretRef, enabled } };
+  return { ok: true, value: { id, label, kind, baseUrl, authType, authHeader, secretRef, oauth, enabled } };
 }
 
 /** Validate a baseUrl: https origin (+ optional path), no userinfo, no traversal.
@@ -181,6 +282,9 @@ export function buildAuthHeaders(
     case 'none':
       return {};
     case 'bearer':
+    case 'oauth':
+      // OAuth injects the live access token the broker resolved (refreshed on
+      // demand) exactly like a bearer token.
       return secret ? { authorization: `Bearer ${secret}` } : {};
     case 'header':
       return secret && authHeader ? { [authHeader.toLowerCase()]: secret } : {};
@@ -257,11 +361,63 @@ export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
     idSuggestion: 'my-api'
   },
 
+  // ─── OAuth 2.0 connectors (Fase 0.2) ────────────────────────────────────────
+  // authType 'oauth' is now real: the OAuth token manager (src/main/oauthManager.ts)
+  // runs an authorization-code + PKCE flow and the broker injects a live, auto-refreshed
+  // access token. The user registers their OWN OAuth app with the provider and supplies
+  // its clientId (+ secret for confidential clients). These templates seed the endpoints.
+  {
+    kind: 'oauth',
+    label: 'OAuth 2.0 service',
+    baseUrl: '',
+    authType: 'oauth',
+    secretLabel: 'OAuth client secret',
+    secretHelp: 'For any OAuth 2.0 provider. Register an app with the provider, set its redirect URI to the loopback URL shown when you connect, then paste the authorize/token endpoints, client id, and scopes.',
+    idSuggestion: 'my-oauth-api',
+    oauth: { authorizationUrl: '', tokenUrl: '', clientId: '', scopes: [], usesClientSecret: true }
+  },
+  {
+    kind: 'oauth',
+    label: 'Notion (OAuth)',
+    baseUrl: 'https://api.notion.com/v1',
+    authType: 'oauth',
+    secretLabel: 'Notion OAuth client secret',
+    secretHelp: 'notion.so/my-integrations → create a PUBLIC integration → copy its OAuth client id + secret, and set the redirect URI to the loopback URL shown when you connect.',
+    docsUrl: 'https://developers.notion.com/docs/authorization',
+    idSuggestion: 'notion-oauth',
+    oauth: {
+      authorizationUrl: 'https://api.notion.com/v1/oauth/authorize',
+      tokenUrl: 'https://api.notion.com/v1/oauth/token',
+      clientId: '',
+      scopes: [],
+      usesClientSecret: true,
+      authParams: { owner: 'user' }
+    }
+  },
+  {
+    kind: 'oauth',
+    label: 'Google Calendar (OAuth)',
+    baseUrl: 'https://www.googleapis.com/calendar/v3',
+    authType: 'oauth',
+    secretLabel: 'Google OAuth client secret',
+    secretHelp: 'console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (type "Web application"). Add the loopback redirect URI shown when you connect. Paste the client id + secret.',
+    docsUrl: 'https://developers.google.com/identity/protocols/oauth2/web-server',
+    idSuggestion: 'google-calendar',
+    oauth: {
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+      clientId: '',
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+      usesClientSecret: true,
+      // access_type=offline + prompt=consent are what make Google return a refresh
+      // token (without them the connection dies when the first access token expires).
+      authParams: { access_type: 'offline', prompt: 'consent' }
+    }
+  },
+
   // ─── First-wave YC tools (Dwight, P2) ───────────────────────────────────────
   // Per-tool auth model + high-value endpoint catalog: hive/docs/integration-templates.md.
-  // Gmail / Google Calendar / Salesforce are intentionally NOT registered yet: they
-  // authenticate via OAuth, and IntegrationAuthType has no `oauth2` (OAuth refresh is a
-  // v1 non-goal — spec §8). They are documented under "Pending: OAuth broker".
+  // These use static tokens (PAT / API key), distinct from the OAuth connectors above.
   {
     kind: 'custom-rest',
     label: 'Linear',

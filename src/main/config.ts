@@ -13,6 +13,7 @@ import { defaultMcpDefaults } from '../shared/mcpCatalog';
 import { MAX_AGENT_TOKEN_CAP } from '../shared/tokenCaps';
 import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
+import type { UserProfile } from '../shared/userProfile';
 import {
   DEFAULT_CONTEXT_TRIGGER,
   DEFAULT_ORG_TRIGGER,
@@ -175,6 +176,11 @@ export interface KnowledgeGraphConfig {
 export interface HarnessConfig {
   /** Has the user completed the first-run onboarding? */
   onboardingComplete: boolean;
+  /** Global user & business profile (Fase 0.1) — the "who you work for" context.
+   *  Injected into every spawn's system prompt (profileToPromptBlock) and exposed
+   *  as i18next default variables ({{userName}}, {{userBusiness}}, …). Metadata
+   *  only, no secrets. Default absent = a fresh install with nothing set. */
+  userProfile?: UserProfile;
   /** Self-identified audience picked on the first onboarding screen. Drives the
    *  copy register everywhere onboarding explains itself: 'technical' shows CLI /
    *  flag lingo, 'non-technical' explains each concept in plain language. Unset =

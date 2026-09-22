@@ -14,6 +14,7 @@ import type {
   WebhookTrigger
 } from '@shared/triggers';
 import { isNewer } from '@shared/updateState';
+import type { UserProfile } from '@shared/userProfile';
 import modelCatalog from '@shared/modelCatalog.json';
 import type { CatalogModel, ModelCatalog } from '@shared/modelCatalogPayload';
 
@@ -60,6 +61,8 @@ export interface HarnessConfig {
    *  'non-technical') — drives the copy register across onboarding. Mirrors
    *  src/main/config.ts. */
   audience?: 'technical' | 'non-technical';
+  /** Global user & business profile (Fase 0.1). Mirrors src/main/config.ts. */
+  userProfile?: UserProfile;
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first) for the launch picker.
    *  Mirrors src/main/config.ts. */

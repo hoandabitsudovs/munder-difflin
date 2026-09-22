@@ -61,7 +61,10 @@ import { analytics, isRendererMessageSurface } from './analytics';
 import type { SpawnFailReason } from './analytics';
 import { IntegrationBroker } from './integrationBroker';
 import * as integrations from './integrations';
-import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, INTEGRATION_TEMPLATES } from '../shared/integrations';
+import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, oauthClientSecretRefFor, isOAuth, INTEGRATION_TEMPLATES } from '../shared/integrations';
+import { profileToPromptBlock } from '../shared/userProfile';
+import { getValidAccessToken, oauthStatus, type OAuthManagerDeps } from './oauthManager';
+import { beginAuthorization, oauthRedirectUri } from './oauth';
 import { RosterStore } from './roster';
 import { buildWorkerLaunch } from './workerLaunch';
 import { ControlRegistry } from './control';
@@ -384,8 +387,18 @@ const liveWorkers = new Map<string, WorkerRec>();
  *  granted a per-worker capability token at spawn (revoked in teardownPty). */
 const integrationBroker = new IntegrationBroker({
   getRecord: integrations.getRecord,
-  getSecret: integrations.getSecret
+  getSecret: integrations.getSecret,
+  // OAuth (Fase 0.2): the broker asks the token manager for a live access token,
+  // refreshed on demand. Same injected getRecord/getSecret/setSecret store.
+  getOAuthAccessToken: (id) => getValidAccessToken(oauthDeps, id)
 });
+
+/** Injected store for the OAuth token manager + authorization flow (Fase 0.2). */
+const oauthDeps: OAuthManagerDeps = {
+  getRecord: integrations.getRecord,
+  getSecret: integrations.getSecret,
+  setSecret: integrations.setSecret
+};
 
 /** BYOK backend model-providers whose API keys the non-Claude CLI engines
  *  (OpenCode/Crush/pi/qwen) read from standard env vars. Keys are stored
@@ -2768,7 +2781,11 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           skillsDir: skillsResourceDir(),
           // The shared palace is mutated by the agent's own `mempalace` calls, so
           // the OS sandbox must let it through (empty when memory is off).
-          extraWritableDirs: [memory.env().MEMPALACE_PALACE_PATH].filter((p): p is string => !!p)
+          extraWritableDirs: [memory.env().MEMPALACE_PALACE_PATH].filter((p): p is string => !!p),
+          // Fase 0.1 — the global user/business profile, rendered once here so the
+          // prompt prefix stays cache-stable for the agent's lifetime. Empty string
+          // (nothing set) drops the line entirely inside injectedPrompt.
+          userProfileBlock: profileToPromptBlock(readConfig().userProfile)
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
@@ -3158,7 +3175,12 @@ ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
   // is ever materialized, so a bad path never even decrypts it.
   const target = resolveUpstreamUrl(rec.baseUrl, typeof p.path === 'string' ? p.path : '');
   if (!target) return { ok: false, error: 'path escapes the integration baseUrl', code: 'bad_request' };
-  const secret = integrations.getSecret(rec.secretRef);
+  // OAuth resolves a live (auto-refreshed) access token; every other secret auth type
+  // reads the raw stored credential. A 503-style "not connected" surfaces as an error.
+  const secret = isOAuth(rec.authType)
+    ? await getValidAccessToken(oauthDeps, rec.id)
+    : integrations.getSecret(rec.secretRef);
+  if (isOAuth(rec.authType) && !secret) return { ok: false, status: 503, error: 'not connected (OAuth)' };
   const headers = buildAuthHeaders(rec.authType, rec.authHeader, secret);
   try {
     const ac = new AbortController();
@@ -3169,6 +3191,41 @@ ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+});
+
+// ─── IPC: OAuth connectors (Fase 0.2) ────────────────────────────────────────
+// authType 'oauth' integrations connect via authorization-code + PKCE. The client
+// secret (confidential clients) is WRITE-ONLY like every other secret; the token
+// bundle never crosses IPC — the renderer only learns connected/expiry via status.
+// The fixed loopback redirect URI the user registers with their provider.
+ipcMain.handle('integrations:oauthRedirectUri', () => oauthRedirectUri());
+// Store an OAuth client secret WRITE-ONLY under its own ref (kept separate from the
+// token bundle so disconnecting never wipes the app registration).
+ipcMain.handle('integrations:oauthSetClientSecret', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown; secret?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  if (typeof p.secret !== 'string' || !p.secret) return { ok: false, error: 'secret required' };
+  return integrations.setSecret(oauthClientSecretRefFor(p.id), p.secret);
+});
+// Whether a client secret is stored (presence boolean; gates the Connect button for
+// confidential clients).
+ipcMain.handle('integrations:oauthHasClientSecret', (_evt, id: unknown) =>
+  typeof id === 'string' ? integrations.hasSecret(oauthClientSecretRefFor(id)) : false);
+// Connected status + access-token expiry (no token value).
+ipcMain.handle('integrations:oauthStatus', (_evt, id: unknown) =>
+  typeof id === 'string' ? oauthStatus(oauthDeps, id) : { connected: false });
+// Run the interactive connect flow (opens the browser, waits for the loopback redirect).
+ipcMain.handle('integrations:oauthBegin', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return Promise.resolve({ ok: false, error: 'id required' });
+  return beginAuthorization(oauthDeps, p.id);
+});
+// Disconnect: drop the token bundle (keep the client secret so re-connect is one click).
+ipcMain.handle('integrations:oauthDisconnect', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  try { integrations.deleteSecret(secretRefFor(p.id)); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
 });
 
 // ─── IPC: config ────────────────────────────────────────────────────────────

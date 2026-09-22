@@ -9,6 +9,7 @@ import { useHive } from '@/hooks/useHive';
 import { useHermesPoll } from '@/hooks/useHermesPoll';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 import { useGodNameSync } from '@/i18n/useGodNameSync';
+import { useUserProfileSync } from '@/i18n/useUserProfileSync';
 import { useDirectionSync } from '@/i18n/useDirection';
 import { useArabicTerminalSync } from '@/terminal/useArabicTerminalSync';
 import { MemoryPanel } from '@/components/MemoryPanel';
@@ -61,6 +62,8 @@ export function App() {
   const setIdeOpen = useStore(s => s.setIdeOpen);
 
   const [config, setConfig] = useState<HarnessConfig | null>(null);
+  // Point every {{userName}}/{{userBusiness}}/… string at the live profile (Fase 0.1).
+  useUserProfileSync(config?.userProfile);
   // Whether the user has passed the launch-time hive picker this session. Starts
   // true (skip the picker) right after a hive SWITCH — changeHome relaunches and
   // leaves a one-shot localStorage flag so we don't bounce back onto the picker for
