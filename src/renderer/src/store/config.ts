@@ -15,6 +15,7 @@ import type {
 } from '@shared/triggers';
 import { isNewer } from '@shared/updateState';
 import type { UserProfile } from '@shared/userProfile';
+import type { MemorySource } from '@shared/memorySources';
 import modelCatalog from '@shared/modelCatalog.json';
 import type { CatalogModel, ModelCatalog } from '@shared/modelCatalogPayload';
 
@@ -63,6 +64,8 @@ export interface HarnessConfig {
   audience?: 'technical' | 'non-technical';
   /** Global user & business profile (Fase 0.1). Mirrors src/main/config.ts. */
   userProfile?: UserProfile;
+  /** Registered memory sources (Fase 1). Mirrors src/main/config.ts. */
+  memorySources?: MemorySource[];
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first) for the launch picker.
    *  Mirrors src/main/config.ts. */

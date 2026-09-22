@@ -359,6 +359,39 @@ export class MemoryManager {
     return fresh;
   }
 
+  /**
+   * Mine an ARBITRARY directory into a named palace wing (Fase 1 — memory sources).
+   *
+   * Same spawn as `mineAgent`, but the caller names the wing (e.g. `src-<id>` for an
+   * ingested memory source) instead of it being an agent id. Public so the memory-
+   * source ingest path can push normalized markdown into the shared palace, where the
+   * existing `mempalace search` recall reaches it with no other change. No-op (resolves
+   * ok=false) when semantic memory is inactive or the CLI is missing.
+   */
+  async mineDir(dir: string, wing: string): Promise<{ ok: boolean; error?: string }> {
+    if (!this.active() || !this.bin()) return { ok: false, error: 'semantic memory not active' };
+    if (!existsSync(dir)) return { ok: false, error: 'source directory does not exist' };
+    return new Promise((resolve) => {
+      const bin = this.bin();
+      if (!bin) { resolve({ ok: false, error: 'mempalace not found' }); return; }
+      const proc = spawn(bin, ['mine', dir, '--wing', wing, '--agent', wing], {
+        env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe']
+      });
+      let err = '';
+      proc.stderr?.on('data', (d) => { err += d.toString(); });
+      const timer = setTimeout(() => {
+        try { proc.kill('SIGTERM'); } catch { /* gone */ }
+        ensureKilled(proc.pid);
+      }, MINE_TIMEOUT_MS);
+      timer.unref?.();
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        resolve(code === 0 ? { ok: true } : { ok: false, error: (err.slice(-300) || `mine exited ${code}`).trim() });
+      });
+      proc.on('error', (e) => { clearTimeout(timer); resolve({ ok: false, error: e.message }); });
+    });
+  }
+
   private mineAgent(agentDir: string, id: string): Promise<void> {
     return new Promise((resolve) => {
       const bin = this.bin();

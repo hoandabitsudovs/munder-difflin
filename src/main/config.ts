@@ -14,6 +14,7 @@ import { MAX_AGENT_TOKEN_CAP } from '../shared/tokenCaps';
 import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
 import type { UserProfile } from '../shared/userProfile';
+import type { MemorySource } from '../shared/memorySources';
 import {
   DEFAULT_CONTEXT_TRIGGER,
   DEFAULT_ORG_TRIGGER,
@@ -272,6 +273,11 @@ export interface HarnessConfig {
    *  handle, never the secret value (secrets live encrypted in a separate file via
    *  Electron safeStorage — see src/main/integrations.ts). Default []. */
   integrations?: IntegrationRecord[];
+  /** Registered memory sources (Fase 1) — external knowledge (Obsidian vault, chat
+   *  export, Notion via an OAuth connector) normalized to markdown and mined into a
+   *  dedicated MemPalace wing so it's recallable through the existing search. Metadata
+   *  only; a Notion source references an OAuth integrationId, no secrets here. */
+  memorySources?: MemorySource[];
   /** Default per-worker TOTAL-token cap (input+output+cache) applied to every
    *  god-triggered ephemeral worker; a worker's own spawn-request `tokenCap`
    *  overrides it. When the effective cap is exceeded the worker is reaped (its

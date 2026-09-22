@@ -65,6 +65,7 @@ import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, oa
 import { profileToPromptBlock } from '../shared/userProfile';
 import { getValidAccessToken, oauthStatus, type OAuthManagerDeps } from './oauthManager';
 import { beginAuthorization, oauthRedirectUri } from './oauth';
+import { MemorySourcesManager } from './memorySources';
 import { RosterStore } from './roster';
 import { buildWorkerLaunch } from './workerLaunch';
 import { ControlRegistry } from './control';
@@ -315,6 +316,14 @@ const memory = new MemoryManager(
 );
 // Enterprise Knowledge Graph — file-backed store + agent CLI (default OFF).
 const knowledge = new KnowledgeManager();
+// Memory sources (Fase 1) — ingest external knowledge (Obsidian/chat export/Notion)
+// into the shared palace. mineDir reuses the palace miner; the OAuth token resolver
+// (Fase 0.2) is what lets a Notion source fetch through its connector.
+const memorySources = new MemorySourcesManager({
+  getHome: () => readConfig().harnessHome,
+  mineDir: (dir, wing) => memory.mineDir(dir, wing),
+  getOAuthAccessToken: (id) => getValidAccessToken(oauthDeps, id)
+});
 /** Reads the reflect tunables from config each tick (defaults baked in here so a
  *  pre-existing config.json without the keys still gets sane values). */
 function reflectSettings(): ReflectSettings {
@@ -3226,6 +3235,34 @@ ipcMain.handle('integrations:oauthDisconnect', (_evt, payload: unknown) => {
   if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
   try { integrations.deleteSecret(secretRefFor(p.id)); return { ok: true }; }
   catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+});
+
+// ─── IPC: memory sources (Fase 1 — multi-source ingest into the palace) ──────
+ipcMain.handle('memorySources:list', () => memorySources.list());
+ipcMain.handle('memorySources:status', () => memorySources.allStatus());
+ipcMain.handle('memorySources:upsert', (_evt, record: unknown) => memorySources.upsert(record));
+ipcMain.handle('memorySources:remove', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  return memorySources.remove(p.id);
+});
+ipcMain.handle('memorySources:ingest', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return Promise.resolve({ ok: false, error: 'id required' });
+  return memorySources.ingest(p.id);
+});
+// A file picker for the chat-export source (json export). Folder picker reuses
+// dialog:chooseFolder for the Obsidian vault.
+ipcMain.handle('memorySources:pickExportFile', async (evt) => {
+  const win = BrowserWindow.fromWebContents(evt.sender);
+  if (!win) return { ok: false as const, error: 'no window' };
+  const res = await dialog.showOpenDialog(win, {
+    properties: ['openFile'],
+    filters: [{ name: 'Export', extensions: ['json'] }],
+    title: 'Pick a ChatGPT/Claude export (.json)'
+  });
+  if (res.canceled || res.filePaths.length === 0) return { ok: false as const, error: 'cancelled' };
+  return { ok: true as const, path: res.filePaths[0] };
 });
 
 // ─── IPC: config ────────────────────────────────────────────────────────────

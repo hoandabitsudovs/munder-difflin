@@ -21,6 +21,7 @@ import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { UserProfileSection } from './UserProfileSection';
+import { MemorySourcesPanel } from './MemorySourcesPanel';
 import { sanitizeUserProfile, type UserProfile } from '@shared/userProfile';
 import { AiEnginesSettings } from './AiEnginesSettings';
 import { REALTIME_MODEL } from '@shared/realtimePricing';
@@ -1397,6 +1398,11 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </PixelButton>
                         </div>
                       </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
+
+                      {/* Memory sources (Fase 1) — ingest external knowledge into the palace. */}
+                      <MemorySourcesPanel />
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 

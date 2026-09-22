@@ -6,6 +6,8 @@ import type { IntegrationRecord, IntegrationTemplate } from '../shared/integrati
 export type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
 import type { UserProfile } from '../shared/userProfile';
 export type { UserProfile } from '../shared/userProfile';
+import type { MemorySource, MemorySourceStatus } from '../shared/memorySources';
+export type { MemorySource, MemorySourceStatus } from '../shared/memorySources';
 import type { UpdateStatus } from '../shared/updateState';
 export type { UpdateStatus } from '../shared/updateState';
 import type { ToolStatus } from '../shared/toolCatalog';
@@ -267,6 +269,8 @@ export interface HarnessConfig {
   audience?: 'technical' | 'non-technical';
   /** Global user & business profile (Fase 0.1). Mirrors src/main/config.ts. */
   userProfile?: UserProfile;
+  /** Registered memory sources (Fase 1). Mirrors src/main/config.ts. */
+  memorySources?: MemorySource[];
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
   recentHives?: string[];
@@ -1313,6 +1317,21 @@ const api = {
     ipcRenderer.invoke('integrations:oauthBegin', req),
   integrationsOAuthDisconnect: (req: { id: string }): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('integrations:oauthDisconnect', req),
+  // ─── Memory sources (Fase 1 — multi-source ingest into the palace) ───────────
+  // Records are metadata only (config-backed). A Notion source references an OAuth
+  // integrationId; no secret ever crosses here. Ingest normalizes + mines into a wing.
+  memorySourcesList: (): Promise<MemorySource[]> =>
+    ipcRenderer.invoke('memorySources:list'),
+  memorySourcesStatus: (): Promise<MemorySourceStatus[]> =>
+    ipcRenderer.invoke('memorySources:status'),
+  memorySourcesUpsert: (record: MemorySource): Promise<{ ok: true; record: MemorySource } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('memorySources:upsert', record),
+  memorySourcesRemove: (req: { id: string }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('memorySources:remove', req),
+  memorySourcesIngest: (req: { id: string }): Promise<{ ok: boolean; docCount?: number; error?: string }> =>
+    ipcRenderer.invoke('memorySources:ingest', req),
+  memorySourcesPickExportFile: (): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('memorySources:pickExportFile'),
   // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
   // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
   // the plaintext. Keys are materialized MAIN-ONLY at spawn.
