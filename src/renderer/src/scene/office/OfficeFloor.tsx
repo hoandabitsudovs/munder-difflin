@@ -229,9 +229,21 @@ export function OfficeFloor() {
   const pausedRef = useRef(paused);
   useEffect(() => {
     pausedRef.current = paused;
-    const ticker = appRef.current?.ticker;
-    if (!ticker) return; // app.init() hasn't created it yet — init() applies it
-    if (paused) ticker.stop(); else ticker.start();
+    const app = appRef.current;
+    const ticker = app?.ticker;
+    if (!app || !ticker) return; // app.init() hasn't created it yet — init() applies it
+    if (paused) { ticker.stop(); return; }
+    ticker.start();
+    // On RESUME (returning from a background window / a fullscreen Space switch),
+    // repaint immediately instead of waiting for — or missing — the next tick (timers
+    // and rAF are throttled while hidden, so the first post-resume frame can be late or
+    // dropped, leaving the office blank). If the GL context was dropped while hidden and
+    // no `webglcontextrestored` rebuilt us (glRecovery), rebuild the scene now.
+    try {
+      const gl = (app.renderer as unknown as { gl?: { isContextLost?: () => boolean } }).gl;
+      if (gl?.isContextLost?.()) { setGlGeneration((n) => n + 1); return; }
+      app.render();
+    } catch { /* best-effort repaint */ }
   }, [paused]);
 
   useEffect(() => {

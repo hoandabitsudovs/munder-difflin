@@ -52,6 +52,7 @@ export function installContextLossRecovery(
 
   let rebuilds = 0;
   let live = true;
+  let pendingRebuild: unknown = null;
 
   const onLost = (e: Event) => {
     // WITHOUT preventDefault the browser will never hand the context back — the
@@ -67,13 +68,34 @@ export function installContextLossRecovery(
     }
     rebuilds += 1;
     log(`[OfficeFloor] WebGL context lost (Chromium evicted the oldest context) — rebuilding the scene, attempt ${rebuilds}/${max}`);
-    schedule(() => { if (live) opts.onRebuild(); }, delay);
+    // Cover the eviction-WITHOUT-restore case: Chromium evicted our slot and may not
+    // fire `webglcontextrestored`. If it DOES restore (the common case on a macOS
+    // fullscreen Space-switch), onRestored below cancels this and rebuilds at once.
+    pendingRebuild = schedule(() => { pendingRebuild = null; if (live) opts.onRebuild(); }, delay);
+  };
+
+  // The RESTORE half. macOS drops a backgrounded fullscreen window's GL context and
+  // hands it back (`webglcontextrestored`) on return — but a restored context is
+  // BLANK until its GPU resources are re-uploaded, which Pixi does not do on its own.
+  // So rebuild the scene here too. Crucially, RESET the rebuild budget: a lost→restored
+  // cycle is normal window management, not the eviction storm the budget guards
+  // against, so counting each Space-switch toward the 3-rebuild cap (and then giving up
+  // with a permanent blank floor) was the "switch away and back a few times → gone for
+  // good" bug.
+  const onRestored = () => {
+    if (!live) return;
+    rebuilds = 0;
+    if (pendingRebuild != null) { try { clearTimeout(pendingRebuild as ReturnType<typeof setTimeout>); } catch { /* custom scheduler */ } pendingRebuild = null; }
+    log('[OfficeFloor] WebGL context restored — rebuilding the scene onto it');
+    opts.onRebuild();
   };
 
   canvas.addEventListener('webglcontextlost', onLost as EventListener, false);
+  canvas.addEventListener('webglcontextrestored', onRestored as EventListener, false);
   return () => {
     live = false;
     canvas.removeEventListener('webglcontextlost', onLost as EventListener, false);
+    canvas.removeEventListener('webglcontextrestored', onRestored as EventListener, false);
   };
 }
 
