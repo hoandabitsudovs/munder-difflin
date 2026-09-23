@@ -1344,10 +1344,14 @@ const api = {
   // back image bytes for the gallery.
   mediaHasKey: (): Promise<boolean> => ipcRenderer.invoke('media:hasKey'),
   mediaList: (): Promise<MediaItem[]> => ipcRenderer.invoke('media:list'),
-  mediaRead: (id: string): Promise<{ ok: boolean; b64?: string; error?: string }> =>
+  mediaRead: (id: string): Promise<{ ok: boolean; b64?: string; contentType?: string; error?: string }> =>
     ipcRenderer.invoke('media:read', id),
   mediaGenerate: (req: { prompt: string; size?: string; model?: string }): Promise<{ ok: true; item: MediaItem } | { ok: false; error: string }> =>
     ipcRenderer.invoke('media:generate', req),
+  mediaGenerateVideo: (req: { prompt: string; size?: string; seconds?: string; model?: string }): Promise<{ ok: true; item: MediaItem } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('media:generateVideo', req),
+  mediaPoll: (id: string): Promise<{ ok: boolean; item?: MediaItem; error?: string }> =>
+    ipcRenderer.invoke('media:poll', id),
   mediaDelete: (req: { id: string }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('media:delete', req),
   // ─── Outbound webhooks (Fase 5 — Zapier/n8n bridge) ──────────────────────────

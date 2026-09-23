@@ -24,7 +24,7 @@ const fieldLabel: CSSProperties = { ...dispLabel, color: 'var(--cth-ink-700)' };
 const hint: CSSProperties = { fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' };
 const inputStyle: CSSProperties = { width: '100%', padding: '6px 8px', background: 'var(--cth-paper-100)', border: 'none', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', fontSize: 12, lineHeight: '18px', color: 'var(--cth-ink-900)', fontFamily: 'inherit' };
 
-const KIND_GLYPH: Record<MemorySourceKind, string> = { obsidian: '📓', 'chat-export': '💬', notion: 'N', photos: '🖼️' };
+const KIND_GLYPH: Record<MemorySourceKind, string> = { obsidian: '📓', 'chat-export': '💬', notion: 'N', photos: '🖼️', gmail: '✉️' };
 
 interface Draft {
   kind: MemorySourceKind;
@@ -33,11 +33,12 @@ interface Draft {
   filePath: string;
   integrationId: string;
   folderPath: string;
+  caption: boolean;
 }
 
 function emptyDraft(kind: MemorySourceKind): Draft {
   const label = kind === 'obsidian' ? 'Obsidian' : kind === 'chat-export' ? 'Chat export' : kind === 'notion' ? 'Notion' : 'Photos';
-  return { kind, label, vaultPath: '', filePath: '', integrationId: '', folderPath: '' };
+  return { kind, label, vaultPath: '', filePath: '', integrationId: '', folderPath: '', caption: false };
 }
 
 export function MemorySourcesPanel() {
@@ -85,7 +86,8 @@ export function MemorySourcesPanel() {
     const base = { id, label: d.label.trim() || d.kind, enabled: true, createdAt: now, updatedAt: now };
     if (d.kind === 'obsidian') return { ...base, kind: 'obsidian', config: { vaultPath: d.vaultPath.trim() } };
     if (d.kind === 'chat-export') return { ...base, kind: 'chat-export', config: { filePath: d.filePath.trim(), format: 'auto' } };
-    if (d.kind === 'photos') return { ...base, kind: 'photos', config: { folderPath: d.folderPath.trim() } };
+    if (d.kind === 'photos') return { ...base, kind: 'photos', config: { folderPath: d.folderPath.trim(), caption: d.caption } };
+    if (d.kind === 'gmail') return { ...base, kind: 'gmail', config: { integrationId: d.integrationId } };
     return { ...base, kind: 'notion', config: { integrationId: d.integrationId } };
   };
 
@@ -93,7 +95,7 @@ export function MemorySourcesPanel() {
     if (!d.label.trim()) return tr('memorySources.errLabel');
     if (d.kind === 'obsidian' && !d.vaultPath.trim()) return tr('memorySources.errVault');
     if (d.kind === 'chat-export' && !d.filePath.trim()) return tr('memorySources.errFile');
-    if (d.kind === 'notion' && !d.integrationId) return tr('memorySources.errConnector');
+    if ((d.kind === 'notion' || d.kind === 'gmail') && !d.integrationId) return tr('memorySources.errConnector');
     if (d.kind === 'photos' && !d.folderPath.trim()) return tr('memorySources.errFolder');
     return null;
   };
@@ -202,6 +204,7 @@ export function MemorySourcesPanel() {
               <option value="chat-export">{tr('memorySources.kind.chat-export')}</option>
               <option value="notion">{tr('memorySources.kind.notion')}</option>
               <option value="photos">{tr('memorySources.kind.photos')}</option>
+              <option value="gmail">{tr('memorySources.kind.gmail')}</option>
             </select>
           </label>
 
@@ -237,9 +240,13 @@ export function MemorySourcesPanel() {
                 <PixelButton variant="secondary" size="sm" onClick={() => { void browseFolder(); }}>{tr('memorySources.browse')}</PixelButton>
               </div>
               <span style={hint}>{tr('memorySources.photoHint')}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                <PixelButton variant={draft.caption ? 'primary' : 'secondary'} size="sm" onClick={() => setDraft((d) => ({ ...d, caption: !d.caption }))}>{draft.caption ? tr('common.on') : tr('common.off')}</PixelButton>
+                <span style={hint}>{tr('memorySources.photoCaption')}</span>
+              </div>
             </label>
           )}
-          {draft.kind === 'notion' && (
+          {(draft.kind === 'notion' || draft.kind === 'gmail') && (
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <span style={fieldLabel}>{tr('memorySources.connector')}</span>
               {oauthConns.length === 0 ? (
@@ -250,7 +257,7 @@ export function MemorySourcesPanel() {
                   {oauthConns.map((c) => <option key={c.id} value={c.id}>{c.label}{c.hasSecret ? ' ✓' : ''}</option>)}
                 </select>
               )}
-              <span style={hint}>{tr('memorySources.notionHint')}</span>
+              <span style={hint}>{draft.kind === 'gmail' ? tr('memorySources.gmailHint') : tr('memorySources.notionHint')}</span>
             </label>
           )}
 

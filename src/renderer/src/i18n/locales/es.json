@@ -410,6 +410,11 @@
     "promptPlaceholder": "Una oficina isométrica acogedora al atardecer, pixel-art…",
     "generate": "Generar",
     "generating": "Generando…",
+    "image": "Imagen",
+    "video": "Video",
+    "generateVideo": "Generar video",
+    "videoWorking": "Generando video…",
+    "videoFailed": "Falló el video",
     "failed": "Falló la generación",
     "empty": "Todavía no hay imágenes — escribí un prompt y generá una."
   },
@@ -1296,6 +1301,7 @@
     "kind": {
       "obsidian": "Bóveda de Obsidian",
       "photos": "Carpeta de fotos",
+      "gmail": "Gmail",
       "chat-export": "Export de ChatGPT/Claude",
       "notion": "Notion (vía OAuth)"
     },
@@ -1323,6 +1329,8 @@
     "errFile": "Elegí el archivo de export.",
     "photoFolder": "Carpeta de fotos",
     "photoHint": "Indexa cada foto por su nombre, ruta y fecha para encontrarla por significado (todavía sin modelo de visión).",
+    "photoCaption": "Describir cada foto con IA (usa tu key de OpenAI; consume llamadas a la API).",
+    "gmailHint": "Indexa correos recientes (solo lectura) vía un conector OAuth de Google. Conectá uno en Connections primero.",
     "errFolder": "Elegí la carpeta de fotos.",
     "errConnector": "Elegí un conector OAuth."
   },

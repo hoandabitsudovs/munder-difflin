@@ -14,9 +14,9 @@
  * `integrationId` (Fase 0.2); the token bundle stays in the encrypted secret store.
  */
 
-export type MemorySourceKind = 'obsidian' | 'chat-export' | 'notion' | 'photos';
+export type MemorySourceKind = 'obsidian' | 'chat-export' | 'notion' | 'photos' | 'gmail';
 
-export const ALL_MEMORY_SOURCE_KINDS: readonly MemorySourceKind[] = ['obsidian', 'chat-export', 'notion', 'photos'];
+export const ALL_MEMORY_SOURCE_KINDS: readonly MemorySourceKind[] = ['obsidian', 'chat-export', 'notion', 'photos', 'gmail'];
 
 /** A local Obsidian vault (folder of .md notes). Fully local, no credentials. */
 export interface ObsidianConfig { vaultPath: string }
@@ -24,9 +24,13 @@ export interface ObsidianConfig { vaultPath: string }
 export interface ChatExportConfig { filePath: string; format?: 'auto' | 'chatgpt' | 'claude' }
 /** A Notion workspace reached through an OAuth integration (Fase 0.2). */
 export interface NotionConfig { integrationId: string }
+/** Gmail reached through a Google OAuth integration (extra). Indexes recent mail. */
+export interface GmailConfig { integrationId: string }
 /** A local folder of photos (Fase 5). Each image is indexed by its metadata
- *  (name/path/folder/date) so it is recallable by meaning through the palace. */
-export interface PhotosConfig { folderPath: string }
+ *  (name/path/folder/date) so it is recallable by meaning through the palace. When
+ *  `caption` is on (extra), a vision model also describes each image and that caption
+ *  is indexed too — the "magic photo search". Costs API calls, so it is opt-in. */
+export interface PhotosConfig { folderPath: string; caption?: boolean }
 
 interface MemorySourceBase {
   /** Stable lowercase slug, unique. */
@@ -49,7 +53,8 @@ export type MemorySource =
   | (MemorySourceBase & { kind: 'obsidian'; config: ObsidianConfig })
   | (MemorySourceBase & { kind: 'chat-export'; config: ChatExportConfig })
   | (MemorySourceBase & { kind: 'notion'; config: NotionConfig })
-  | (MemorySourceBase & { kind: 'photos'; config: PhotosConfig });
+  | (MemorySourceBase & { kind: 'photos'; config: PhotosConfig })
+  | (MemorySourceBase & { kind: 'gmail'; config: GmailConfig });
 
 /** Runtime ingest status surfaced to the UI (merged with the persisted record). */
 export interface MemorySourceStatus {
@@ -126,7 +131,12 @@ export function validateMemorySource(
     case 'photos': {
       const folderPath = typeof cfg.folderPath === 'string' ? cfg.folderPath.trim() : '';
       if (!folderPath) return { ok: false, error: 'photos: folderPath is required' };
-      return { ok: true, value: { ...base, kind, config: { folderPath } } };
+      return { ok: true, value: { ...base, kind, config: { folderPath, caption: cfg.caption === true } } };
+    }
+    case 'gmail': {
+      const integrationId = typeof cfg.integrationId === 'string' ? cfg.integrationId.trim() : '';
+      if (!integrationId) return { ok: false, error: 'gmail: integrationId (a Google OAuth connector) is required' };
+      return { ok: true, value: { ...base, kind, config: { integrationId } } };
     }
     default:
       return { ok: false, error: 'unknown kind' };

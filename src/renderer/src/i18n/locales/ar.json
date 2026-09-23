@@ -410,6 +410,11 @@
     "promptPlaceholder": "مكتب أيزومتري دافئ وقت الغروب، فن البكسل…",
     "generate": "إنشاء",
     "generating": "جارٍ الإنشاء…",
+    "image": "صورة",
+    "video": "فيديو",
+    "generateVideo": "إنشاء فيديو",
+    "videoWorking": "جارٍ إنشاء الفيديو…",
+    "videoFailed": "فشل الفيديو",
     "failed": "فشل الإنشاء",
     "empty": "لا توجد صور بعد — اكتب وصفًا وأنشئ واحدة."
   },
@@ -1271,6 +1276,7 @@
     "kind": {
       "obsidian": "خزنة Obsidian",
       "photos": "مجلد الصور",
+      "gmail": "Gmail",
       "chat-export": "تصدير ChatGPT/Claude",
       "notion": "Notion (عبر OAuth)"
     },
@@ -1298,6 +1304,8 @@
     "errFile": "اختر ملف التصدير.",
     "photoFolder": "مجلد الصور",
     "photoHint": "يفهرس كل صورة حسب اسمها ومسارها وتاريخها لتجدها بالمعنى (لا يوجد نموذج رؤية بعد).",
+    "photoCaption": "وصف كل صورة بالذكاء الاصطناعي (يستخدم مفتاح OpenAI؛ يستهلك طلبات API).",
+    "gmailHint": "يفهرس الرسائل الأخيرة (للقراءة فقط) عبر موصّل Google OAuth. اربط واحدًا من Connections أولًا.",
     "errFolder": "اختر مجلد الصور.",
     "errConnector": "اختر موصّل OAuth."
   },

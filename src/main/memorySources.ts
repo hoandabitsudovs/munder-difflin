@@ -39,7 +39,14 @@ export interface MemorySourcesDeps {
   mineDir: (dir: string, wing: string) => Promise<{ ok: boolean; error?: string }>;
   /** Live OAuth access token for an integration id (Fase 0.2). Undefined ⇒ not connected. */
   getOAuthAccessToken: (integrationId: string) => Promise<string | undefined>;
+  /** OpenAI BYOK key from the secret broker — for optional photo captioning (extra).
+   *  Undefined ⇒ captioning silently skipped (metadata-only indexing still runs). */
+  getOpenAiKey?: () => string | undefined;
 }
+
+/** Cap on how many photos get an AI caption per ingest (cost guard). Beyond this the
+ *  rest are still indexed by metadata. */
+const MAX_CAPTIONED = 200;
 
 export class MemorySourcesManager {
   /** ids currently mid-ingest — serialized per source, surfaced to the UI. */
@@ -130,7 +137,8 @@ export class MemorySourcesManager {
       if (rec.kind === 'obsidian') docCount = await ingestObsidian(rec.config.vaultPath, dir);
       else if (rec.kind === 'chat-export') docCount = await ingestChatExport(rec.config.filePath, rec.config.format ?? 'auto', dir);
       else if (rec.kind === 'notion') docCount = await ingestNotion(rec.config.integrationId, dir, this.deps.getOAuthAccessToken);
-      else if (rec.kind === 'photos') docCount = await ingestPhotos(rec.config.folderPath, dir);
+      else if (rec.kind === 'photos') docCount = await ingestPhotos(rec.config.folderPath, dir, rec.config.caption === true ? this.deps.getOpenAiKey?.() : undefined);
+      else if (rec.kind === 'gmail') docCount = await ingestGmail(rec.config.integrationId, dir, this.deps.getOAuthAccessToken);
 
       if (docCount === 0) {
         this.patchRecord(id, { lastError: 'no documents found to ingest', docCount: 0 });
@@ -199,9 +207,48 @@ async function ingestObsidian(vaultPath: string, outDir: string): Promise<number
  *  mined into the palace, so a semantic search finds photos by their name/path/context.
  *  A caption/vision pass could enrich this later; this keeps it fully local + free. */
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff']);
-async function ingestPhotos(folderPath: string, outDir: string): Promise<number> {
+/** MIME type for a vision request, by extension. */
+const IMAGE_MIME: Record<string, string> = {
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+  '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp'
+};
+
+/** Describe one image with an OpenAI vision model. Returns '' on any failure (the
+ *  caller keeps the metadata-only doc). Only jpeg/png/webp/gif/bmp are sent. */
+async function captionImage(path: string, ext: string, apiKey: string): Promise<string> {
+  const mime = IMAGE_MIME[ext];
+  if (!mime) return '';
+  let dataUrl: string;
+  try { dataUrl = `data:${mime};base64,${(await readFile(path)).toString('base64')}`; } catch { return ''; }
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 30_000);
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 120,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Describe this image in 1–2 sentences for search: subjects, setting, notable text, mood. Be concrete.' },
+            { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }
+          ]
+        }]
+      }),
+      signal: ac.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) return '';
+    const json = await res.json() as { choices?: { message?: { content?: string } }[] };
+    return (json.choices?.[0]?.message?.content ?? '').trim();
+  } catch { return ''; }
+}
+
+async function ingestPhotos(folderPath: string, outDir: string, openAiKey?: string): Promise<number> {
   if (!existsSync(folderPath)) throw new Error(`photo folder not found: ${folderPath}`);
-  const found: { path: string; size: number; mtime: number }[] = [];
+  const found: { path: string; ext: string; size: number; mtime: number }[] = [];
   const skipDirs = new Set(['.git', 'node_modules', '.thumbnails', '@eaDir']);
   async function walk(dir: string): Promise<void> {
     if (found.length >= MAX_DOCS) return;
@@ -214,22 +261,30 @@ async function ingestPhotos(folderPath: string, outDir: string): Promise<number>
       const ext = dot >= 0 ? ent.name.slice(dot).toLowerCase() : '';
       if (!ent.isFile() || !IMAGE_EXTS.has(ext)) continue;
       const full = join(dir, ent.name);
-      try { const st = await stat(full); found.push({ path: full, size: st.size, mtime: st.mtimeMs }); } catch { /* skip */ }
+      try { const st = await stat(full); found.push({ path: full, ext, size: st.size, mtime: st.mtimeMs }); } catch { /* skip */ }
     }
   }
   await walk(folderPath);
 
   let count = 0;
+  let captioned = 0;
   for (const img of found) {
     const rel = relative(folderPath, img.path);
     const folder = rel.split(sep).slice(0, -1).join(' / ') || '(root)';
     const nameNoExt = rel.split(sep).pop()?.replace(/\.[^.]+$/, '') ?? rel;
     const date = new Date(img.mtime).toISOString().slice(0, 10);
+    // Optional vision caption (extra) — the "magic photo search". Capped for cost.
+    let caption = '';
+    if (openAiKey && captioned < MAX_CAPTIONED) {
+      caption = await captionImage(img.path, img.ext, openAiKey);
+      if (caption) captioned += 1;
+    }
     const md = [
       `# ${nameNoExt}`,
       '',
       '_Source: Photos_',
       '',
+      ...(caption ? [caption, ''] : []),
       `- Path: ${rel}`,
       `- Folder: ${folder}`,
       `- Date: ${date}`,
@@ -323,6 +378,55 @@ function claudeConvoToMd(convo: unknown): string | null {
   if (!msgs.length) return null;
   const title = typeof o.name === 'string' ? o.name : 'Conversation';
   return `# ${title}\n\n_Source: Claude export_\n\n` + msgs.join('\n\n');
+}
+
+const GMAIL_MAX_MESSAGES = 200;
+/** Gmail (extra): fetch recent messages' metadata via a Google OAuth token and write
+ *  one markdown doc per message (subject/from/date/snippet). Read-only. */
+async function ingestGmail(
+  integrationId: string,
+  outDir: string,
+  getToken: (id: string) => Promise<string | undefined>
+): Promise<number> {
+  const token = await getToken(integrationId);
+  if (!token) throw new Error('Gmail connector is not connected (OAuth)');
+  const headers = { authorization: `Bearer ${token}` };
+  const api = 'https://gmail.googleapis.com/gmail/v1/users/me';
+
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const u = new URL(`${api}/messages`);
+    u.searchParams.set('maxResults', '100');
+    if (cursor) u.searchParams.set('pageToken', cursor);
+    const res = await fetch(u, { headers });
+    if (!res.ok) throw new Error(`Gmail list failed (${res.status})`);
+    const json = await res.json() as { messages?: { id: string }[]; nextPageToken?: string };
+    for (const m of json.messages ?? []) { ids.push(m.id); if (ids.length >= GMAIL_MAX_MESSAGES) break; }
+    cursor = ids.length < GMAIL_MAX_MESSAGES ? json.nextPageToken : undefined;
+  } while (cursor);
+
+  const hdr = (headersArr: { name?: string; value?: string }[], name: string): string =>
+    headersArr.find((h) => (h.name ?? '').toLowerCase() === name)?.value ?? '';
+  let count = 0;
+  for (const id of ids) {
+    try {
+      const u = new URL(`${api}/messages/${id}`);
+      u.searchParams.set('format', 'metadata');
+      for (const h of ['Subject', 'From', 'Date']) u.searchParams.append('metadataHeaders', h);
+      const res = await fetch(u, { headers });
+      if (!res.ok) continue;
+      const msg = await res.json() as { snippet?: string; payload?: { headers?: { name?: string; value?: string }[] } };
+      const hs = msg.payload?.headers ?? [];
+      const subject = hdr(hs, 'subject') || '(no subject)';
+      const from = hdr(hs, 'from');
+      const date = hdr(hs, 'date');
+      const md = `# ${subject}\n\n_Source: Gmail_\n\n- From: ${from}\n- Date: ${date}\n\n${msg.snippet ?? ''}`;
+      await writeFile(join(outDir, `${count}-${safeDocName(subject, `mail-${count}`)}.md`), md.slice(0, MAX_DOC_BYTES), 'utf8');
+      count += 1;
+    } catch { /* skip */ }
+  }
+  return count;
 }
 
 /** Notion: fetch pages via the OAuth token (main-side) and render each to markdown.

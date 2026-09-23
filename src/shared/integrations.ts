@@ -415,6 +415,25 @@ export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
     }
   },
 
+  {
+    kind: 'oauth',
+    label: 'Gmail (OAuth)',
+    baseUrl: 'https://gmail.googleapis.com/gmail/v1',
+    authType: 'oauth',
+    secretLabel: 'Google OAuth client secret',
+    secretHelp: 'console.cloud.google.com → OAuth client ID (Web application) with the Gmail API enabled. Add the loopback redirect URI shown when you connect. Read-only Gmail scope.',
+    docsUrl: 'https://developers.google.com/gmail/api/auth/scopes',
+    idSuggestion: 'gmail',
+    oauth: {
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+      clientId: '',
+      scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+      usesClientSecret: true,
+      authParams: { access_type: 'offline', prompt: 'consent' }
+    }
+  },
+
   // ─── First-wave YC tools (Dwight, P2) ───────────────────────────────────────
   // Per-tool auth model + high-value endpoint catalog: hive/docs/integration-templates.md.
   // These use static tokens (PAT / API key), distinct from the OAuth connectors above.

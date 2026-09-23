@@ -410,6 +410,11 @@
     "promptPlaceholder": "A cozy isometric office at golden hour, pixel-art…",
     "generate": "Generate",
     "generating": "Generating…",
+    "image": "Image",
+    "video": "Video",
+    "generateVideo": "Generate video",
+    "videoWorking": "Generating video…",
+    "videoFailed": "Video failed",
     "failed": "Generation failed",
     "empty": "No images yet — write a prompt and generate one."
   },
@@ -1296,6 +1301,7 @@
     "kind": {
       "obsidian": "Obsidian vault",
       "photos": "Photos folder",
+      "gmail": "Gmail",
       "chat-export": "ChatGPT/Claude export",
       "notion": "Notion (via OAuth)"
     },
@@ -1323,6 +1329,8 @@
     "errFile": "Pick the export file.",
     "photoFolder": "Photos folder",
     "photoHint": "Indexes each photo by its name, path and date so you can find it by meaning (no vision model yet).",
+    "photoCaption": "Caption each photo with AI (uses your OpenAI key; costs API calls).",
+    "gmailHint": "Indexes recent emails (read-only) via a Google OAuth connector. Connect one under Connections first.",
     "errFolder": "Pick the photos folder.",
     "errConnector": "Choose an OAuth connector."
   },

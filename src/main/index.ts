@@ -324,7 +324,9 @@ const knowledge = new KnowledgeManager();
 const memorySources = new MemorySourcesManager({
   getHome: () => readConfig().harnessHome,
   mineDir: (dir, wing) => memory.mineDir(dir, wing),
-  getOAuthAccessToken: (id) => getValidAccessToken(oauthDeps, id)
+  getOAuthAccessToken: (id) => getValidAccessToken(oauthDeps, id),
+  // Extra: optional photo captioning reuses the BYOK OpenAI key from the broker.
+  getOpenAiKey: () => integrations.getSecret(providerKeyRef('openai'))
 });
 /** Reads the reflect tunables from config each tick (defaults baked in here so a
  *  pre-existing config.json without the keys still gets sane values). */
@@ -801,6 +803,9 @@ function syncMissions(): void {
         // their prior behaviour, including the historical empty-body send (Pam N1).
         if (m.kind !== 'compact' && hive.enabled()) {
           hive.send({ to: m.to, act: 'request', subject: m.label, body: m.body }, 'scheduler');
+          // Fase 5b extra: mirror scheduled dispatches (incl. the Daily Brief) to any
+          // outbound webhooks, so Zapier/n8n can react to "the morning brief fired".
+          try { outboundWebhooks.fire('mission_fired', { missionId: m.id, label: m.label, to: m.to }); } catch { /* best-effort */ }
         }
         // Auto-compact: do NOT jam /compact into busy terminals. Hand it to the
         // renderer, which queues a /compact per agent (deduped — never two at
@@ -3363,6 +3368,18 @@ ipcMain.handle('media:delete', (_evt, payload: unknown) => {
   if (typeof p.id !== 'string' || !p.id) return Promise.resolve({ ok: false });
   return mediaGen.remove(p.id);
 });
+ipcMain.handle('media:generateVideo', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { prompt?: unknown; size?: unknown; seconds?: unknown; model?: unknown };
+  if (typeof p.prompt !== 'string' || !p.prompt.trim()) return Promise.resolve({ ok: false, error: 'a prompt is required' });
+  return mediaGen.generateVideo({
+    prompt: p.prompt,
+    size: typeof p.size === 'string' ? p.size : undefined,
+    seconds: typeof p.seconds === 'string' ? p.seconds : undefined,
+    model: typeof p.model === 'string' ? p.model : undefined
+  });
+});
+ipcMain.handle('media:poll', (_evt, id: unknown) =>
+  typeof id === 'string' ? mediaGen.pollVideo(id) : Promise.resolve({ ok: false, error: 'bad id' }));
 
 // ─── IPC: outbound webhooks (Fase 5 — Zapier/n8n bridge) ─────────────────────
 ipcMain.handle('outboundWebhooks:list', () => outboundWebhooks.list());
@@ -4734,7 +4751,11 @@ registerRealtimeActionIpc({
 
 // rt-12 seam: push detected completions to the live floor; bridge live-flag, queue
 // drain (closed-session warm-start), and wait_for over IPC. Then start polling.
-completionWatcher.onCompletion((evt) => { try { liveWebContents()?.send('realtime:completion', evt); } catch { /* window gone */ } });
+completionWatcher.onCompletion((evt) => {
+  try { liveWebContents()?.send('realtime:completion', evt); } catch { /* window gone */ }
+  // Fase 5b extra: a dispatched task finishing is a first-class event for Zapier/n8n.
+  try { outboundWebhooks.fire('task_completed', { ...(evt as unknown as Record<string, unknown>) }); } catch { /* best-effort */ }
+});
 // v0.3.4: the floor delta watcher shares the session-live flag — while a voice
 // session is open it pushes coalesced floor updates the renderer injects as
 // silent conversation items (snapshot-at-connect + append-only deltas).

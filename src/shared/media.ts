@@ -8,6 +8,15 @@ export interface MediaItem {
   model: string;
   size: string;
   createdAt: number;
-  /** file name of the PNG, relative to the media dir. */
+  /** file name of the saved media (PNG for images, MP4 for videos), relative to the
+   *  media dir. Empty until a video job completes. */
   file: string;
+  /** 'image' (default, synchronous) or 'video' (async job — see status). */
+  kind?: 'image' | 'video';
+  /** Video jobs only: provider job lifecycle. */
+  status?: 'queued' | 'in_progress' | 'completed' | 'failed';
+  /** Video jobs only: the provider job id to poll. */
+  jobId?: string;
+  /** Set when status === 'failed'. */
+  error?: string;
 }

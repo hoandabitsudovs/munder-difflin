@@ -410,6 +410,11 @@
     "promptPlaceholder": "黄昏时分温馨的等距办公室，像素风……",
     "generate": "生成",
     "generating": "生成中……",
+    "image": "图像",
+    "video": "视频",
+    "generateVideo": "生成视频",
+    "videoWorking": "正在生成视频……",
+    "videoFailed": "视频失败",
     "failed": "生成失败",
     "empty": "还没有图像——写个提示词生成一张吧。"
   },
@@ -1271,6 +1276,7 @@
     "kind": {
       "obsidian": "Obsidian 库",
       "photos": "照片文件夹",
+      "gmail": "Gmail",
       "chat-export": "ChatGPT/Claude 导出",
       "notion": "Notion（通过 OAuth）"
     },
@@ -1298,6 +1304,8 @@
     "errFile": "请选择导出文件。",
     "photoFolder": "照片文件夹",
     "photoHint": "按名称、路径和日期为每张照片建立索引，便于按含义查找（暂无视觉模型）。",
+    "photoCaption": "用 AI 为每张照片生成描述（使用你的 OpenAI 密钥，会产生 API 调用费用）。",
+    "gmailHint": "通过 Google OAuth 连接器索引最近的邮件（只读）。请先在 Connections 中连接一个。",
     "errFolder": "请选择照片文件夹。",
     "errConnector": "请选择一个 OAuth 连接器。"
   },

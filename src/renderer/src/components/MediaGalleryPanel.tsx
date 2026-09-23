@@ -24,16 +24,19 @@ export function MediaGalleryPanel() {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [prompt, setPrompt] = useState('');
   const [size, setSize] = useState(SIZES[0]);
+  const [mode, setMode] = useState<'image' | 'video'>('image');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   const loadUrls = async (list: MediaItem[]) => {
     const entries: [string, string][] = [];
     for (const it of list) {
+      // Videos only have bytes once completed.
+      if (it.kind === 'video' && it.status !== 'completed') continue;
       if (urls[it.id]) { entries.push([it.id, urls[it.id]]); continue; }
       try {
         const r = await window.cth.mediaRead(it.id);
-        if (r.ok && r.b64) entries.push([it.id, `data:image/png;base64,${r.b64}`]);
+        if (r.ok && r.b64) entries.push([it.id, `data:${r.contentType ?? 'image/png'};base64,${r.b64}`]);
       } catch { /* skip */ }
     }
     setUrls(Object.fromEntries(entries));
@@ -59,13 +62,27 @@ export function MediaGalleryPanel() {
     if (!prompt.trim()) return;
     setBusy(true); setErr('');
     try {
-      const res = await window.cth.mediaGenerate({ prompt: prompt.trim(), size });
+      const res = mode === 'video'
+        ? await window.cth.mediaGenerateVideo({ prompt: prompt.trim() })
+        : await window.cth.mediaGenerate({ prompt: prompt.trim(), size });
       if (!res.ok) { setErr(res.error || t('media.failed')); return; }
       setPrompt('');
       await refresh();
     } catch (e) { setErr(e instanceof Error ? e.message : t('media.failed')); }
     finally { setBusy(false); }
   };
+
+  // Poll any in-flight video jobs until they complete.
+  useEffect(() => {
+    const pending = items.filter((it) => it.kind === 'video' && it.status !== 'completed' && it.status !== 'failed');
+    if (!pending.length) return;
+    const t = setInterval(async () => {
+      for (const it of pending) { try { await window.cth.mediaPoll(it.id); } catch { /* skip */ } }
+      await refresh();
+    }, 5000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const onDelete = async (id: string) => {
     try { await window.cth.mediaDelete({ id }); await refresh(); } catch { /* ignore */ }
@@ -91,11 +108,17 @@ export function MediaGalleryPanel() {
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t('media.promptPlaceholder')} style={{ ...inputStyle, minHeight: 56, resize: 'vertical' }} />
         </label>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={size} onChange={(e) => setSize(e.target.value)} style={{ ...inputStyle, width: 'auto', fontFamily: 'var(--cth-font-mono)' }}>
-            {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <PixelButton variant={mode === 'image' ? 'primary' : 'secondary'} size="sm" onClick={() => setMode('image')}>{t('media.image')}</PixelButton>
+            <PixelButton variant={mode === 'video' ? 'primary' : 'secondary'} size="sm" onClick={() => setMode('video')}>{t('media.video')}</PixelButton>
+          </div>
+          {mode === 'image' && (
+            <select value={size} onChange={(e) => setSize(e.target.value)} style={{ ...inputStyle, width: 'auto', fontFamily: 'var(--cth-font-mono)' }}>
+              {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
           <PixelButton variant="primary" size="sm" onClick={() => { void onGenerate(); }} disabled={busy || !prompt.trim() || !hasKey}>
-            {busy ? t('media.generating') : t('media.generate')}
+            {busy ? t('media.generating') : mode === 'video' ? t('media.generateVideo') : t('media.generate')}
           </PixelButton>
           {err && <span style={{ fontSize: 12, color: 'var(--cth-danger, #6E1423)' }}>{err}</span>}
         </div>
@@ -111,9 +134,15 @@ export function MediaGalleryPanel() {
           {items.map((it) => (
             <div key={it.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', padding: 6 }}>
               <div style={{ position: 'relative', aspectRatio: '1 / 1', background: 'var(--cth-cream-200)', overflow: 'hidden' }}>
-                {urls[it.id]
-                  ? <img src={urls[it.id]} alt={it.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <div style={{ ...hint, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>…</div>}
+                {it.kind === 'video' && it.status !== 'completed'
+                  ? <div style={{ ...hint, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: 6 }}>
+                      {it.status === 'failed' ? `⚠ ${it.error ?? t('media.videoFailed')}` : `🎬 ${t('media.videoWorking')}`}
+                    </div>
+                  : urls[it.id]
+                    ? (it.kind === 'video'
+                        ? <video src={urls[it.id]} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <img src={urls[it.id]} alt={it.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />)
+                    : <div style={{ ...hint, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>…</div>}
               </div>
               <span style={{ ...hint, maxHeight: 32, overflow: 'hidden' }} title={it.prompt}>{it.prompt}</span>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
