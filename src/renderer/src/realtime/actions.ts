@@ -358,6 +358,24 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       execute: (input) => act('create_schedule', input)
     }),
     tool({
+      name: 'schedule_event',
+      description:
+        'Add a REAL event to the user\'s connected calendar (e.g. Google Calendar via a Connections OAuth connector). Use for "schedule/put/add a meeting", "book time", "put X on my calendar". DESTRUCTIVE (outward-facing) — returns an echo-back and asks for verbal confirmation (\'calendar\' or \'confirm\'); after the user confirms, call confirm_action. RESOLVE the date/time yourself from what the user said and pass ISO-8601 datetimes (include the timezone offset when you know it); today\'s date is available to you.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'The event title / summary.' },
+          startIso: { type: 'string', description: 'Start datetime in ISO-8601 (e.g. 2026-09-24T15:00:00-03:00).' },
+          endIso: { type: 'string', description: 'Optional. End datetime in ISO-8601. If omitted, durationMinutes (or 30 min) is used.' },
+          durationMinutes: { type: 'number', description: 'Optional. Length in minutes when no endIso is given (default 30).' },
+          integrationId: { type: 'string', description: 'Optional. The calendar connector id to use; omit to use the connected calendar.' }
+        },
+        required: ['title', 'startIso'],
+        additionalProperties: false
+      },
+      execute: (input) => act('schedule_event', input)
+    }),
+    tool({
       name: 'update_setting',
       description:
         "Change one app setting from the voice-allowed list. Cosmetic/low-risk keys (notifications, officeTheme, terminalTheme, freeflowEnabled, strongKeepalive, autoUpdate, tvShowOffices, realtimeIdleDisconnectMs) apply immediately; behavior-changing keys (autoMode, defaultModel, godProvider, godModel, maxConcurrentWorkers, costCapTokens, maxTurns, slackEnabled, webhookEnabled, semanticMemory, multiWindow) return an echo-back with old→new and need verbal confirmation ('setting' or 'confirm') — then call confirm_action. Secrets, folders and anything not listed are refused.",

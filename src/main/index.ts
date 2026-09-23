@@ -409,6 +409,61 @@ const oauthDeps: OAuthManagerDeps = {
   setSecret: integrations.setSecret
 };
 
+/**
+ * Create a real calendar event through a connected calendar OAuth connector (Fase 3,
+ * "voice that executes"). Resolves the Google-Calendar-style connector (an enabled
+ * `oauth` integration whose baseUrl targets the Calendar API, or an explicit id),
+ * materializes its access token main-side, and POSTs an event to the primary calendar.
+ * The token never leaves the main process. Returns a short spoken-friendly detail.
+ */
+async function scheduleCalendarEvent(args: {
+  title: string; startIso: string; endIso?: string; durationMinutes?: number; integrationId?: string;
+}): Promise<{ ok: boolean; detail: string }> {
+  const isCalendar = (r: { baseUrl: string }): boolean => /googleapis\.com\/calendar/i.test(r.baseUrl);
+  const rec = args.integrationId
+    ? integrations.getRecord(args.integrationId)
+    : integrations.listRecords().find((r) => r.authType === 'oauth' && r.enabled && isCalendar(r));
+  if (!rec) return { ok: false, detail: 'No connected calendar connector was found. Add and connect one under Connections.' };
+  if (rec.authType !== 'oauth') return { ok: false, detail: 'That connector is not an OAuth calendar connector.' };
+  const token = await getValidAccessToken(oauthDeps, rec.id);
+  if (!token) return { ok: false, detail: `The "${rec.label}" calendar isn't connected. Connect it under Connections first.` };
+
+  const start = new Date(args.startIso);
+  if (isNaN(start.getTime())) return { ok: false, detail: 'I could not read that start time.' };
+  const end = args.endIso && !isNaN(Date.parse(args.endIso))
+    ? new Date(args.endIso)
+    : new Date(start.getTime() + (args.durationMinutes ?? 30) * 60_000);
+  let timeZone = 'UTC';
+  try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { /* keep UTC */ }
+
+  const base = rec.baseUrl.replace(/\/+$/, '');
+  const body = {
+    summary: args.title,
+    start: { dateTime: start.toISOString(), timeZone },
+    end: { dateTime: end.toISOString(), timeZone }
+  };
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 20_000);
+    const res = await fetch(`${base}/calendars/primary/events`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ac.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      let msg = `HTTP ${res.status}`;
+      try { const j = JSON.parse(txt); if (j?.error?.message) msg = String(j.error.message); } catch { /* non-JSON */ }
+      return { ok: false, detail: `The calendar rejected the event: ${msg}.` };
+    }
+    return { ok: true, detail: `Added "${args.title}" to ${rec.label} on ${start.toLocaleString()}.` };
+  } catch (e) {
+    return { ok: false, detail: `Could not reach the calendar: ${e instanceof Error ? e.message : String(e)}.` };
+  }
+}
+
 /** BYOK backend model-providers whose API keys the non-Claude CLI engines
  *  (OpenCode/Crush/pi/qwen) read from standard env vars. Keys are stored
  *  WRITE-ONLY in the same encrypted secret broker as integrations, under
@@ -4620,7 +4675,10 @@ registerRealtimeActionIpc({
     try { liveWebContents()?.send('realtime:enqueue', { agentId: id, text }); } catch { /* window gone */ }
   },
   getConfigValue: (key) => (readConfig() as unknown as Record<string, unknown>)[key],
-  patchConfig: (patch) => { writeConfig(patch as Partial<HarnessConfig>); }
+  patchConfig: (patch) => { writeConfig(patch as Partial<HarnessConfig>); },
+  // Fase 3 — voice creates a real calendar event through a connected calendar OAuth
+  // connector (Fase 0.2). Resolves the token here (main-side); never leaves main.
+  scheduleCalendarEvent: (args) => scheduleCalendarEvent(args)
 });
 
 // rt-12 seam: push detected completions to the live floor; bridge live-flag, queue

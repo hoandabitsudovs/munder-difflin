@@ -88,6 +88,13 @@ export interface RealtimeActionDeps {
    *  raw patch. */
   getConfigValue(key: string): unknown;
   patchConfig(patch: Record<string, unknown>): void;
+  /** schedule_event (Fase 3): create a real calendar event through a connected
+   *  calendar OAuth connector (Fase 0.2). Injected from index.ts (which owns the
+   *  integrations + OAuth token). Optional — the verb reports "not available" when
+   *  unset. Returns a short human detail for the spoken confirmation. */
+  scheduleCalendarEvent?(args: {
+    title: string; startIso: string; endIso?: string; durationMinutes?: number; integrationId?: string
+  }): Promise<{ ok: boolean; detail: string }>;
 }
 
 /** The result every action / confirm / cancel returns to the renderer tool, which
@@ -123,7 +130,10 @@ const VERBS: Record<string, { tier: Tier; confirmWord: string; agentTargeted: bo
   clear_context: { tier: 'destructive', confirmWord: 'clear', agentTargeted: true },
   archive: { tier: 'destructive', confirmWord: 'archive', agentTargeted: true },
   create_schedule: { tier: 'destructive', confirmWord: 'schedule', agentTargeted: false },
-  update_setting: { tier: 'destructive', confirmWord: 'setting', agentTargeted: false }
+  update_setting: { tier: 'destructive', confirmWord: 'setting', agentTargeted: false },
+  // Fase 3 — voice creates a REAL calendar event through a connected calendar OAuth
+  // connector. Outward-facing, so it takes the two-step verbal confirm ('calendar').
+  schedule_event: { tier: 'destructive', confirmWord: 'calendar', agentTargeted: false }
 };
 
 /** v0.3.4 update_setting policy — the ONLY settings voice can touch, each with
@@ -722,6 +732,36 @@ function proposeDestructive(deps: RealtimeActionDeps, verb: string, a: Record<st
       ok: true,
       needsConfirm: true,
       spoken: `You want a new schedule "${label}", every ${minutes} minutes, messaging ${targetId}. To create it, say "confirm" or "schedule". Say "cancel" to stop.`
+    };
+  }
+
+  // Fase 3: create a real calendar event via a connected calendar OAuth connector.
+  if (verb === 'schedule_event') {
+    if (!deps.scheduleCalendarEvent) {
+      return { ok: false, spoken: 'Calendar isn\'t connected. Add and connect a calendar connector under Settings → Connections first.' };
+    }
+    const title = str(a.title) || str(a.summary) || str(a.name);
+    const startIso = str(a.startIso) || str(a.start) || str(a.when) || str(a.datetime);
+    const endIso = str(a.endIso) || str(a.end);
+    const durationMinutes = typeof a.durationMinutes === 'number' && isFinite(a.durationMinutes)
+      ? Math.min(24 * 60, Math.max(5, Math.round(a.durationMinutes))) : undefined;
+    const integrationId = str(a.integrationId) || undefined;
+    if (!title) return { ok: false, spoken: 'What should the event be called?' };
+    if (!startIso || isNaN(Date.parse(startIso))) return { ok: false, spoken: 'I need a start date and time for the event.' };
+    const when = (() => { const d = new Date(startIso); return isNaN(d.getTime()) ? startIso : d.toLocaleString(); })();
+    pending = {
+      verb, confirmWord: 'calendar', targetLabel: title, createdAt: Date.now(),
+      commit: async () => {
+        const res = await deps.scheduleCalendarEvent!({ title, startIso, endIso: endIso || undefined, durationMinutes, integrationId });
+        attribute(deps, 'schedule_event', title.slice(0, 120), { startIso });
+        if (!res.ok) throw new Error(res.detail);
+        return res.detail;
+      }
+    };
+    return {
+      ok: true,
+      needsConfirm: true,
+      spoken: `You want to add "${title}" to your calendar on ${when}. To create it, say "confirm" or "calendar". Say "cancel" to stop.`
     };
   }
 
