@@ -402,6 +402,17 @@
     "noGoal": "未设定目标",
     "now": "当前"
   },
+  "media": {
+    "title": "创意 — 图像工作室",
+    "desc": "根据提示词生成图像并在此浏览。使用你的 OpenAI 密钥。",
+    "noKey": "未设置 OpenAI 密钥。请在 设置 → Agents & Models（或 Voice）中添加以生成图像。",
+    "prompt": "提示词",
+    "promptPlaceholder": "黄昏时分温馨的等距办公室，像素风……",
+    "generate": "生成",
+    "generating": "生成中……",
+    "failed": "生成失败",
+    "empty": "还没有图像——写个提示词生成一张吧。"
+  },
   "commandCenter": {
     "title": "命令中心",
     "runsTheFloor": "{{name}} 掌管楼层",
@@ -416,6 +427,7 @@
       "floor": "监控",
       "tasks": "任务",
       "goals": "目标",
+      "creativo": "创意",
       "human": "问我",
       "triggers": "触发器",
       "history": "历史",

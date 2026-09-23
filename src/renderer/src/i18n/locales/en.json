@@ -402,6 +402,17 @@
     "noGoal": "No goal set",
     "now": "Now"
   },
+  "media": {
+    "title": "Creativo — image studio",
+    "desc": "Generate images from a prompt and browse them here. Uses your OpenAI key.",
+    "noKey": "No OpenAI key set. Add one under Settings → Agents & Models (or Voice) to generate images.",
+    "prompt": "Prompt",
+    "promptPlaceholder": "A cozy isometric office at golden hour, pixel-art…",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "failed": "Generation failed",
+    "empty": "No images yet — write a prompt and generate one."
+  },
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} runs the floor",
@@ -417,6 +428,7 @@
       "tasks": "tasks",
       "hermes": "hermes",
       "goals": "Goals",
+      "creativo": "Creativo",
       "human": "ask me",
       "triggers": "triggers",
       "history": "history",

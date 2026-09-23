@@ -8,6 +8,8 @@ import type { UserProfile } from '../shared/userProfile';
 export type { UserProfile } from '../shared/userProfile';
 import type { MemorySource, MemorySourceStatus } from '../shared/memorySources';
 export type { MemorySource, MemorySourceStatus } from '../shared/memorySources';
+import type { MediaItem } from '../shared/media';
+export type { MediaItem } from '../shared/media';
 import type { UpdateStatus } from '../shared/updateState';
 export type { UpdateStatus } from '../shared/updateState';
 import type { ToolStatus } from '../shared/toolCatalog';
@@ -1333,6 +1335,17 @@ const api = {
     ipcRenderer.invoke('memorySources:ingest', req),
   memorySourcesPickExportFile: (): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
     ipcRenderer.invoke('memorySources:pickExportFile'),
+  // ─── Media generation (Fase 4 — Creativo) ───────────────────────────────────
+  // The OpenAI key never crosses here; the renderer only sends prompts and reads
+  // back image bytes for the gallery.
+  mediaHasKey: (): Promise<boolean> => ipcRenderer.invoke('media:hasKey'),
+  mediaList: (): Promise<MediaItem[]> => ipcRenderer.invoke('media:list'),
+  mediaRead: (id: string): Promise<{ ok: boolean; b64?: string; error?: string }> =>
+    ipcRenderer.invoke('media:read', id),
+  mediaGenerate: (req: { prompt: string; size?: string; model?: string }): Promise<{ ok: true; item: MediaItem } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('media:generate', req),
+  mediaDelete: (req: { id: string }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('media:delete', req),
   // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
   // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
   // the plaintext. Keys are materialized MAIN-ONLY at spawn.

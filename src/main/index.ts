@@ -66,6 +66,7 @@ import { profileToPromptBlock } from '../shared/userProfile';
 import { getValidAccessToken, oauthStatus, type OAuthManagerDeps } from './oauthManager';
 import { beginAuthorization, oauthRedirectUri } from './oauth';
 import { MemorySourcesManager } from './memorySources';
+import { MediaGenManager } from './mediaGen';
 import { RosterStore } from './roster';
 import { buildWorkerLaunch } from './workerLaunch';
 import { ControlRegistry } from './control';
@@ -476,6 +477,13 @@ const BACKEND_KEY_ENV: Record<string, string> = {
   groq: 'GROQ_API_KEY'
 };
 const providerKeyRef = (backend: string): string => `apikey:${backend}`;
+
+/** Media generation (Fase 4 — Creativo). Reuses the BYOK OpenAI key from the secret
+ *  broker; images land under <home>/media and the gallery reads them back over IPC. */
+const mediaGen = new MediaGenManager({
+  getHome: () => readConfig().harnessHome,
+  getOpenAiKey: () => integrations.getSecret(providerKeyRef('openai'))
+});
 
 /** A worker worktree that teardown PRESERVED because it held unintegrated work.
  *  Tracked so the GC sweep can reclaim it (+ its scratch dir) once the work lands
@@ -3329,6 +3337,26 @@ ipcMain.handle('memorySources:pickExportFile', async (evt) => {
   });
   if (res.canceled || res.filePaths.length === 0) return { ok: false as const, error: 'cancelled' };
   return { ok: true as const, path: res.filePaths[0] };
+});
+
+// ─── IPC: media generation (Fase 4 — Creativo) ───────────────────────────────
+ipcMain.handle('media:hasKey', () => mediaGen.hasKey());
+ipcMain.handle('media:list', () => mediaGen.list());
+ipcMain.handle('media:read', (_evt, id: unknown) =>
+  typeof id === 'string' ? mediaGen.read(id) : Promise.resolve({ ok: false, error: 'bad id' }));
+ipcMain.handle('media:generate', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { prompt?: unknown; size?: unknown; model?: unknown };
+  if (typeof p.prompt !== 'string' || !p.prompt.trim()) return Promise.resolve({ ok: false, error: 'a prompt is required' });
+  return mediaGen.generateImage({
+    prompt: p.prompt,
+    size: typeof p.size === 'string' ? p.size : undefined,
+    model: typeof p.model === 'string' ? p.model : undefined
+  });
+});
+ipcMain.handle('media:delete', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return Promise.resolve({ ok: false });
+  return mediaGen.remove(p.id);
 });
 
 // ─── IPC: config ────────────────────────────────────────────────────────────

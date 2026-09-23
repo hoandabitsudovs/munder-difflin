@@ -402,6 +402,17 @@
     "noGoal": "Sin objetivo",
     "now": "Ahora"
   },
+  "media": {
+    "title": "Creativo — estudio de imágenes",
+    "desc": "Generá imágenes desde un prompt y explorálas acá. Usa tu key de OpenAI.",
+    "noKey": "No hay key de OpenAI. Agregá una en Ajustes → Agents & Models (o Voice) para generar imágenes.",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Una oficina isométrica acogedora al atardecer, pixel-art…",
+    "generate": "Generar",
+    "generating": "Generando…",
+    "failed": "Falló la generación",
+    "empty": "Todavía no hay imágenes — escribí un prompt y generá una."
+  },
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} maneja el piso",
@@ -417,6 +428,7 @@
       "tasks": "tareas",
       "hermes": "hermes",
       "goals": "Objetivos",
+      "creativo": "Creativo",
       "human": "preguntame",
       "triggers": "disparadores",
       "history": "historial",
