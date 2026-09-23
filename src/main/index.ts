@@ -15,7 +15,7 @@ import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
   readConfig, writeConfig, setAgentTokenCap, resetConfig, onConfigWritten, ensureHarnessHome, ensureClaudePermissionsAccepted,
-  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission
+  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, DAILY_BRIEF_MISSION, type HarnessConfig, type ScheduledMission
 } from './config';
 import { listDir, readFileText, readFileBinary, writeFileText, statAbs, expandTilde } from './fs';
 import { normalizeWeekly, weeklyDelayMs } from '../shared/weeklySchedule';
@@ -958,6 +958,17 @@ function ensureDefaultMissions(): void {
     writeConfig({
       missions: has ? missions : [...missions, { ...HEARTBEAT_MISSION, lastFiredAt: Date.now() }],
       heartbeatSeeded: true
+    });
+  }
+  // Seed the Daily Brief (Fase 2) once. Shipped DISABLED — it appears in the SCHEDULES
+  // tab for the user to turn on; lastFiredAt = now so it doesn't fire on first launch.
+  const cfgDB = readConfig();
+  if (!cfgDB.dailyBriefSeeded) {
+    const missions = cfgDB.missions ?? [];
+    const has = missions.some((m) => m.id === DAILY_BRIEF_MISSION.id);
+    writeConfig({
+      missions: has ? missions : [...missions, { ...DAILY_BRIEF_MISSION, lastFiredAt: Date.now() }],
+      dailyBriefSeeded: true
     });
   }
 

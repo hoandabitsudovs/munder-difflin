@@ -87,6 +87,37 @@ export const OPS_STANDUP_MISSION: ScheduledMission = {
   // that stays true: the trigger does it, just not on this mission's clock.
 };
 
+/** The built-in Daily Brief (Fase 2). A weekday-morning dispatch to god that produces
+ *  a short personalized brief drawing on memory (mempalace), the team/board state, and
+ *  the user profile + goals (Fase 0.1, already in god's system context). It writes the
+ *  brief to board.md and pushes anything needing the human onto the ASK-ME board — both
+ *  existing surfaces, so nothing new has to render it. Shipped DISABLED (opt-in): it
+ *  types work into god's session, so the user turns it on in the Schedules tab. Weekly
+ *  Mon–Fri 08:00 local (minute 480). */
+export const DAILY_BRIEF_MISSION: ScheduledMission = {
+  id: 'daily-brief',
+  label: 'Daily brief',
+  // Weekly replaces the interval when present; the interval is kept so switching the
+  // schedule off falls back to a sane daily cadence.
+  intervalMs: 86_400_000,
+  weekly: { days: [1, 2, 3, 4, 5], minute: 480 },
+  to: 'god',
+  body:
+    'Daily brief — prepare a short morning brief for the human. ' +
+    '(1) RECALL: run `mempalace wake-up` and search memory for anything pending, ' +
+    'promised, or recently learned. ' +
+    '(2) REVIEW: read board.md, tasks.json and fleet.json — what is in flight, what ' +
+    'is blocked or at risk, and what finished since yesterday. ' +
+    '(3) ALIGN: weigh it against the USER & BUSINESS PROFILE and goals in your context ' +
+    'and each agent’s goal. ' +
+    'Then WRITE the brief to board.md under a dated "## Daily brief — <date>" heading: ' +
+    'a 3–5 line status, the top priorities for today aligned to the goals, and anything ' +
+    'at risk. For each item that needs a human decision or action, push it onto the ' +
+    'ASK-ME board (a blocked card’s humanQA) so it surfaces on the floor. Keep it tight — ' +
+    'a morning glance, not a report.',
+  enabled: false
+};
+
 /** The built-in heartbeat (Lane A #1). A context-aware beat that, each tick,
  *  observes live floor state and — only when the floor has gone quiet — drops a
  *  digest into god's inbox and (if god's PTY is genuinely idle) nudges it to
@@ -234,6 +265,9 @@ export interface HarnessConfig {
   /** One-time guard for the built-in heartbeat mission (mirrors opsStandupSeeded
    *  so a user who deletes the heartbeat doesn't get it re-added every boot). */
   heartbeatSeeded?: boolean;
+  /** One-time guard for the built-in Daily Brief mission (Fase 2). Shipped disabled;
+   *  seeded once so it appears in the Schedules tab, never re-added after deletion. */
+  dailyBriefSeeded?: boolean;
   /** maint-1 guard for the dedicated auto-compact maintenance mission. UNLIKE the
    *  two above, this does NOT suppress re-add forever: once seeded (flag set), a
    *  later delete makes the mission reappear DISABLED on next boot (compaction is

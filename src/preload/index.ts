@@ -290,6 +290,7 @@ export interface HarnessConfig {
   missions?: ScheduledMission[];
   opsStandupSeeded?: boolean;
   heartbeatSeeded?: boolean;
+  dailyBriefSeeded?: boolean;
   notifications?: boolean;
   /** Opt-in strong keep-alive (prevent-display-sleep). Mirrors main + renderer
    *  HarnessConfig so updateConfig({ strongKeepalive }) is typed across the bridge. */

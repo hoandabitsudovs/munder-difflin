@@ -394,6 +394,14 @@
     "unsavedChanges": "有未保存的更改",
     "unsavedWarning": "你有未保存的设置。仍要关闭并放弃这些更改吗？"
   },
+  "goals": {
+    "title": "团队目标",
+    "yourGoals": "你的目标",
+    "count": "{{total}} 个智能体中有 {{withGoals}} 个设定了目标",
+    "empty": "办公室里还没有智能体。",
+    "noGoal": "未设定目标",
+    "now": "当前"
+  },
   "commandCenter": {
     "title": "命令中心",
     "runsTheFloor": "{{name}} 掌管楼层",
@@ -407,6 +415,7 @@
       "terminal": "终端",
       "floor": "监控",
       "tasks": "任务",
+      "goals": "目标",
       "human": "问我",
       "triggers": "触发器",
       "history": "历史",

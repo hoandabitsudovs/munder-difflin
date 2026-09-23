@@ -90,6 +90,7 @@ export interface HarnessConfig {
   missions?: ScheduledMission[];
   opsStandupSeeded?: boolean;
   heartbeatSeeded?: boolean;
+  dailyBriefSeeded?: boolean;
   notifications?: boolean;
   /** Opt-in "strong keep-alive": escalates the in-app power blocker to
    *  prevent-display-sleep so scheduled missions/terminals keep firing on time

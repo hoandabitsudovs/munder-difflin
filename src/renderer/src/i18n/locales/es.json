@@ -394,6 +394,14 @@
     "unsavedChanges": "cambios sin guardar",
     "unsavedWarning": "Tenés ajustes sin guardar. ¿Cerrar igual y perderlos?"
   },
+  "goals": {
+    "title": "Objetivos del equipo",
+    "yourGoals": "Tus objetivos",
+    "count": "{{withGoals}} de {{total}} agentes tienen objetivo",
+    "empty": "Todavía no hay agentes en el piso.",
+    "noGoal": "Sin objetivo",
+    "now": "Ahora"
+  },
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} maneja el piso",
@@ -408,6 +416,7 @@
       "floor": "monitor",
       "tasks": "tareas",
       "hermes": "hermes",
+      "goals": "Objetivos",
       "human": "preguntame",
       "triggers": "disparadores",
       "history": "historial",

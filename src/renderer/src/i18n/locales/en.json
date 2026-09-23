@@ -394,6 +394,14 @@
     "unsavedChanges": "unsaved changes",
     "unsavedWarning": "You have unsaved settings. Close anyway and lose them?"
   },
+  "goals": {
+    "title": "Team goals",
+    "yourGoals": "Your goals",
+    "count": "{{withGoals}} of {{total}} agents have a goal",
+    "empty": "No agents on the floor yet.",
+    "noGoal": "No goal set",
+    "now": "Now"
+  },
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} runs the floor",
@@ -408,6 +416,7 @@
       "floor": "monitor",
       "tasks": "tasks",
       "hermes": "hermes",
+      "goals": "Goals",
       "human": "ask me",
       "triggers": "triggers",
       "history": "history",

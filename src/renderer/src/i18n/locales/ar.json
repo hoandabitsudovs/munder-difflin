@@ -394,6 +394,14 @@
     "unsavedChanges": "تغييرات غير محفوظة",
     "unsavedWarning": "لديك إعدادات غير محفوظة. أأغلق على أي حال وأفقدها؟"
   },
+  "goals": {
+    "title": "أهداف الفريق",
+    "yourGoals": "أهدافك",
+    "count": "{{withGoals}} من {{total}} وكيل لديهم هدف",
+    "empty": "لا يوجد وكلاء بعد.",
+    "noGoal": "لا يوجد هدف",
+    "now": "الآن"
+  },
   "commandCenter": {
     "title": "مركز القيادة",
     "runsTheFloor": "{{name}} يُدير الأرضية",
@@ -407,6 +415,7 @@
       "terminal": "الطرفية",
       "floor": "المراقبة",
       "tasks": "المهام",
+      "goals": "الأهداف",
       "human": "اسألني",
       "triggers": "المشغّلات",
       "history": "السجل",
