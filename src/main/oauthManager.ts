@@ -155,6 +155,11 @@ export async function getValidAccessToken(deps: OAuthManagerDeps, id: string): P
   });
   if (!refreshed.ok) return undefined;
   const next = bundleFromResponse(refreshed.json, bundle);
+  // A refresh response that omits `expires_in` would leave expiresAt undefined, which
+  // getValidAccessToken reads as "never expires" — so this refreshed token would never
+  // be refreshed again and would silently 401 once it lapses. Default to a conservative
+  // 1h so the refresh cycle continues.
+  if (next.expiresAt == null) next.expiresAt = Date.now() + 3_600_000;
   writeBundle(deps, id, next);
   return next.accessToken;
 }

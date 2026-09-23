@@ -70,13 +70,16 @@ export function MemorySourcesPanel() {
     return () => { alive = false; };
   }, []);
 
-  // Poll status while anything is ingesting (spinner → done).
+  // Poll status while anything is ingesting (spinner → done). Keyed on a STABLE boolean
+  // so the interval is armed once when ingestion starts and cleared when it ends —
+  // rather than torn down and recreated on every 1.5s refresh (which changes `status`).
+  const anyIngesting = Object.values(status).some((s) => s.ingesting);
   useEffect(() => {
-    const anyIngesting = Object.values(status).some((s) => s.ingesting);
     if (!anyIngesting) return;
     const t = setInterval(() => { void refresh(); }, 1500);
     return () => clearInterval(t);
-  }, [status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyIngesting]);
 
   const startAdd = (kind: MemorySourceKind) => { setDraft(emptyDraft(kind)); setErr(''); setAdding(true); };
 

@@ -753,8 +753,10 @@ function proposeDestructive(deps: RealtimeActionDeps, verb: string, a: Record<st
       verb, confirmWord: 'calendar', targetLabel: title, createdAt: Date.now(),
       commit: async () => {
         const res = await deps.scheduleCalendarEvent!({ title, startIso, endIso: endIso || undefined, durationMinutes, integrationId });
-        attribute(deps, 'schedule_event', title.slice(0, 120), { startIso });
         if (!res.ok) throw new Error(res.detail);
+        // Attribute only a SUCCESSFUL add, so the hive log never records an event that
+        // wasn't created.
+        attribute(deps, 'schedule_event', title.slice(0, 120), { startIso });
         return res.detail;
       }
     };

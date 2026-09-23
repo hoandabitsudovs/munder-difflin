@@ -72,17 +72,23 @@ export function MediaGalleryPanel() {
     finally { setBusy(false); }
   };
 
-  // Poll any in-flight video jobs until they complete.
+  // Poll any in-flight video jobs until they complete. Keyed on the STABLE SET of
+  // pending ids (not the items array identity), so the interval re-arms only when that
+  // set actually changes — not on every 5s refresh.
+  const pendingIds = items
+    .filter((it) => it.kind === 'video' && it.status !== 'completed' && it.status !== 'failed')
+    .map((it) => it.id);
+  const pendingKey = pendingIds.join(',');
   useEffect(() => {
-    const pending = items.filter((it) => it.kind === 'video' && it.status !== 'completed' && it.status !== 'failed');
-    if (!pending.length) return;
+    if (!pendingKey) return;
+    const ids = pendingKey.split(',');
     const t = setInterval(async () => {
-      for (const it of pending) { try { await window.cth.mediaPoll(it.id); } catch { /* skip */ } }
+      for (const id of ids) { try { await window.cth.mediaPoll(id); } catch { /* skip */ } }
       await refresh();
     }, 5000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
+  }, [pendingKey]);
 
   const onDelete = async (id: string) => {
     try { await window.cth.mediaDelete({ id }); await refresh(); } catch { /* ignore */ }

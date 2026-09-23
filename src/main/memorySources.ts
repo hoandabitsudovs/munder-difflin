@@ -80,13 +80,14 @@ export class MemorySourcesManager {
     writeConfig({ memorySources: next });
     return { ok: true, record };
   }
-  remove(id: string): { ok: boolean } {
+  async remove(id: string): Promise<{ ok: boolean }> {
     const next = this.list().filter((s) => s.id !== id);
     writeConfig({ memorySources: next });
-    // Best-effort: drop the normalized-doc directory (palace segments are left to the
-    // reaper; mempalace has no per-wing delete we rely on here).
+    // Await the delete so a quick remove-then-recreate of the same id can't have this
+    // async rm land AFTER the new source's ingest wrote its docs. (Palace segments are
+    // left to the reaper; mempalace has no per-wing delete we rely on here.)
     const dir = this.sourceDir(id);
-    if (dir) void rm(dir, { recursive: true, force: true }).catch(() => {});
+    if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
     return { ok: true };
   }
 

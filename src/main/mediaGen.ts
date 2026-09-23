@@ -28,6 +28,7 @@ export interface MediaGenDeps {
 
 const ALLOWED_SIZES = new Set(['1024x1024', '1024x1536', '1536x1024', '1792x1024', '1024x1792', '512x512', '256x256']);
 const REQUEST_TIMEOUT_MS = 120_000; // image gen is slow
+const VIDEO_JOB_MAX_MS = 20 * 60_000; // give a video job 20 min, then mark it failed
 
 export class MediaGenManager {
   constructor(private readonly deps: MediaGenDeps) {}
@@ -212,6 +213,13 @@ export class MediaGenManager {
     catch { return { ok: false, error: 'not found' }; }
     if (item.kind !== 'video' || !item.jobId) return { ok: true, item };
     if (item.status === 'completed' || item.status === 'failed') return { ok: true, item };
+    // Terminal timeout: a job that never completes must not be polled forever. Mark it
+    // failed after a generous window so the gallery reaches a terminal state.
+    if (Date.now() - item.createdAt > VIDEO_JOB_MAX_MS) {
+      item = { ...item, status: 'failed', error: 'video job timed out' };
+      await writeFile(join(dir, `${id}.json`), JSON.stringify(item, null, 2), 'utf8').catch(() => {});
+      return { ok: true, item };
+    }
     const key = this.deps.getOpenAiKey();
     if (!key) return { ok: true, item };
 
