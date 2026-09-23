@@ -413,6 +413,19 @@
     "failed": "Generation failed",
     "empty": "No images yet — write a prompt and generate one."
   },
+  "outbound": {
+    "title": "Outbound webhooks",
+    "desc": "POST office events (agent notifications) to a Zapier catch hook, an n8n webhook, or any HTTPS endpoint — a bridge to anything downstream.",
+    "label": "Label",
+    "url": "Webhook URL",
+    "add": "Add webhook",
+    "test": "Test",
+    "testOk": "sent ({{status}})",
+    "testFail": "failed",
+    "added": "Webhook added",
+    "couldNotSave": "Could not save",
+    "errFields": "A label and URL are required."
+  },
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} runs the floor",
@@ -1282,6 +1295,7 @@
     "label": "Label",
     "kind": {
       "obsidian": "Obsidian vault",
+      "photos": "Photos folder",
       "chat-export": "ChatGPT/Claude export",
       "notion": "Notion (via OAuth)"
     },
@@ -1307,6 +1321,9 @@
     "errLabel": "A label is required.",
     "errVault": "Pick the Obsidian vault folder.",
     "errFile": "Pick the export file.",
+    "photoFolder": "Photos folder",
+    "photoHint": "Indexes each photo by its name, path and date so you can find it by meaning (no vision model yet).",
+    "errFolder": "Pick the photos folder.",
     "errConnector": "Choose an OAuth connector."
   },
   "integrations": {

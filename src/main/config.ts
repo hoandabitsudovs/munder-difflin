@@ -15,6 +15,7 @@ import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
 import type { UserProfile } from '../shared/userProfile';
 import type { MemorySource } from '../shared/memorySources';
+import type { OutboundWebhook } from '../shared/outboundWebhooks';
 import {
   DEFAULT_CONTEXT_TRIGGER,
   DEFAULT_ORG_TRIGGER,
@@ -312,6 +313,9 @@ export interface HarnessConfig {
    *  dedicated MemPalace wing so it's recallable through the existing search. Metadata
    *  only; a Notion source references an OAuth integrationId, no secrets here. */
   memorySources?: MemorySource[];
+  /** Outbound webhooks (Fase 5) — URLs the app POSTs office events to (Zapier/n8n/any
+   *  HTTPS endpoint). Metadata only; guarded by the unguessable URL, no secret here. */
+  outboundWebhooks?: OutboundWebhook[];
   /** Default per-worker TOTAL-token cap (input+output+cache) applied to every
    *  god-triggered ephemeral worker; a worker's own spawn-request `tokenCap`
    *  overrides it. When the effective cap is exceeded the worker is reaped (its

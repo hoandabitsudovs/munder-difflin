@@ -67,6 +67,7 @@ import { getValidAccessToken, oauthStatus, type OAuthManagerDeps } from './oauth
 import { beginAuthorization, oauthRedirectUri } from './oauth';
 import { MemorySourcesManager } from './memorySources';
 import { MediaGenManager } from './mediaGen';
+import { OutboundWebhooksManager } from './outboundWebhooks';
 import { RosterStore } from './roster';
 import { buildWorkerLaunch } from './workerLaunch';
 import { ControlRegistry } from './control';
@@ -484,6 +485,10 @@ const mediaGen = new MediaGenManager({
   getHome: () => readConfig().harnessHome,
   getOpenAiKey: () => integrations.getSecret(providerKeyRef('openai'))
 });
+
+/** Outbound webhooks (Fase 5 — Zapier/n8n bridge). Fires office events to configured
+ *  URLs, fire-and-forget. */
+const outboundWebhooks = new OutboundWebhooksManager();
 
 /** A worker worktree that teardown PRESERVED because it held unintegrated work.
  *  Tracked so the GC sweep can reclaim it (+ its scratch dir) once the work lands
@@ -3359,6 +3364,20 @@ ipcMain.handle('media:delete', (_evt, payload: unknown) => {
   return mediaGen.remove(p.id);
 });
 
+// ─── IPC: outbound webhooks (Fase 5 — Zapier/n8n bridge) ─────────────────────
+ipcMain.handle('outboundWebhooks:list', () => outboundWebhooks.list());
+ipcMain.handle('outboundWebhooks:upsert', (_evt, record: unknown) => outboundWebhooks.upsert(record));
+ipcMain.handle('outboundWebhooks:remove', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  return outboundWebhooks.remove(p.id);
+});
+ipcMain.handle('outboundWebhooks:test', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return Promise.resolve({ ok: false, error: 'id required' });
+  return outboundWebhooks.test(p.id);
+});
+
 // ─── IPC: config ────────────────────────────────────────────────────────────
 ipcMain.handle('config:get', (): HarnessConfig => readConfig());
 ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => {
@@ -4629,6 +4648,10 @@ const completionWatcher = initCompletionWatcher({
     }
   },
   onNotify: (evt) => {
+    // Fase 5: mirror the lifecycle event to any configured outbound webhooks
+    // (Zapier/n8n). Fire-and-forget — independent of whether native notifications
+    // are supported/enabled, so a downstream automation fires even headless.
+    try { outboundWebhooks.fire('agent_notify', { summary: evt.summary }); } catch { /* best-effort */ }
     try {
       if (!Notification.isSupported()) return;
       const reg = hive.registry();

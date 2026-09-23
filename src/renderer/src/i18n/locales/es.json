@@ -413,6 +413,19 @@
     "failed": "Falló la generación",
     "empty": "Todavía no hay imágenes — escribí un prompt y generá una."
   },
+  "outbound": {
+    "title": "Webhooks salientes",
+    "desc": "POSTea eventos de la oficina (notificaciones de agentes) a un catch hook de Zapier, un webhook de n8n, o cualquier endpoint HTTPS — un puente a lo que sea aguas abajo.",
+    "label": "Etiqueta",
+    "url": "URL del webhook",
+    "add": "Agregar webhook",
+    "test": "Probar",
+    "testOk": "enviado ({{status}})",
+    "testFail": "falló",
+    "added": "Webhook agregado",
+    "couldNotSave": "No se pudo guardar",
+    "errFields": "Faltan la etiqueta y la URL."
+  },
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} maneja el piso",
@@ -1282,6 +1295,7 @@
     "label": "Etiqueta",
     "kind": {
       "obsidian": "Bóveda de Obsidian",
+      "photos": "Carpeta de fotos",
       "chat-export": "Export de ChatGPT/Claude",
       "notion": "Notion (vía OAuth)"
     },
@@ -1307,6 +1321,9 @@
     "errLabel": "Falta una etiqueta.",
     "errVault": "Elegí la carpeta de la bóveda de Obsidian.",
     "errFile": "Elegí el archivo de export.",
+    "photoFolder": "Carpeta de fotos",
+    "photoHint": "Indexa cada foto por su nombre, ruta y fecha para encontrarla por significado (todavía sin modelo de visión).",
+    "errFolder": "Elegí la carpeta de fotos.",
     "errConnector": "Elegí un conector OAuth."
   },
   "integrations": {

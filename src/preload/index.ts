@@ -10,6 +10,8 @@ import type { MemorySource, MemorySourceStatus } from '../shared/memorySources';
 export type { MemorySource, MemorySourceStatus } from '../shared/memorySources';
 import type { MediaItem } from '../shared/media';
 export type { MediaItem } from '../shared/media';
+import type { OutboundWebhook } from '../shared/outboundWebhooks';
+export type { OutboundWebhook } from '../shared/outboundWebhooks';
 import type { UpdateStatus } from '../shared/updateState';
 export type { UpdateStatus } from '../shared/updateState';
 import type { ToolStatus } from '../shared/toolCatalog';
@@ -273,6 +275,8 @@ export interface HarnessConfig {
   userProfile?: UserProfile;
   /** Registered memory sources (Fase 1). Mirrors src/main/config.ts. */
   memorySources?: MemorySource[];
+  /** Outbound webhooks (Fase 5). Mirrors src/main/config.ts. */
+  outboundWebhooks?: OutboundWebhook[];
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
   recentHives?: string[];
@@ -1346,6 +1350,15 @@ const api = {
     ipcRenderer.invoke('media:generate', req),
   mediaDelete: (req: { id: string }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('media:delete', req),
+  // ─── Outbound webhooks (Fase 5 — Zapier/n8n bridge) ──────────────────────────
+  outboundWebhooksList: (): Promise<OutboundWebhook[]> =>
+    ipcRenderer.invoke('outboundWebhooks:list'),
+  outboundWebhooksUpsert: (record: OutboundWebhook): Promise<{ ok: true; record: OutboundWebhook } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('outboundWebhooks:upsert', record),
+  outboundWebhooksRemove: (req: { id: string }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('outboundWebhooks:remove', req),
+  outboundWebhooksTest: (req: { id: string }): Promise<{ ok: boolean; status?: number; error?: string }> =>
+    ipcRenderer.invoke('outboundWebhooks:test', req),
   // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
   // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
   // the plaintext. Keys are materialized MAIN-ONLY at spawn.

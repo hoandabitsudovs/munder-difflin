@@ -16,6 +16,7 @@ import type {
 import { isNewer } from '@shared/updateState';
 import type { UserProfile } from '@shared/userProfile';
 import type { MemorySource } from '@shared/memorySources';
+import type { OutboundWebhook } from '@shared/outboundWebhooks';
 import modelCatalog from '@shared/modelCatalog.json';
 import type { CatalogModel, ModelCatalog } from '@shared/modelCatalogPayload';
 
@@ -66,6 +67,8 @@ export interface HarnessConfig {
   userProfile?: UserProfile;
   /** Registered memory sources (Fase 1). Mirrors src/main/config.ts. */
   memorySources?: MemorySource[];
+  /** Outbound webhooks (Fase 5). Mirrors src/main/config.ts. */
+  outboundWebhooks?: OutboundWebhook[];
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first) for the launch picker.
    *  Mirrors src/main/config.ts. */

@@ -413,6 +413,19 @@
     "failed": "فشل الإنشاء",
     "empty": "لا توجد صور بعد — اكتب وصفًا وأنشئ واحدة."
   },
+  "outbound": {
+    "title": "Webhooks الصادرة",
+    "desc": "يرسل أحداث المكتب (إشعارات الوكلاء) إلى Zapier catch hook أو webhook في n8n أو أي نقطة HTTPS — جسر إلى أي أداة لاحقة.",
+    "label": "التسمية",
+    "url": "رابط Webhook",
+    "add": "إضافة webhook",
+    "test": "اختبار",
+    "testOk": "تم الإرسال ({{status}})",
+    "testFail": "فشل",
+    "added": "تمت إضافة webhook",
+    "couldNotSave": "تعذّر الحفظ",
+    "errFields": "التسمية والرابط مطلوبان."
+  },
   "commandCenter": {
     "title": "مركز القيادة",
     "runsTheFloor": "{{name}} يُدير الأرضية",
@@ -1257,6 +1270,7 @@
     "label": "التسمية",
     "kind": {
       "obsidian": "خزنة Obsidian",
+      "photos": "مجلد الصور",
       "chat-export": "تصدير ChatGPT/Claude",
       "notion": "Notion (عبر OAuth)"
     },
@@ -1282,6 +1296,9 @@
     "errLabel": "التسمية مطلوبة.",
     "errVault": "اختر مجلد خزنة Obsidian.",
     "errFile": "اختر ملف التصدير.",
+    "photoFolder": "مجلد الصور",
+    "photoHint": "يفهرس كل صورة حسب اسمها ومسارها وتاريخها لتجدها بالمعنى (لا يوجد نموذج رؤية بعد).",
+    "errFolder": "اختر مجلد الصور.",
     "errConnector": "اختر موصّل OAuth."
   },
   "integrations": {

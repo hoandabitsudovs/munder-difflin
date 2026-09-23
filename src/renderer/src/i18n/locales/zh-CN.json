@@ -413,6 +413,19 @@
     "failed": "生成失败",
     "empty": "还没有图像——写个提示词生成一张吧。"
   },
+  "outbound": {
+    "title": "出站 Webhook",
+    "desc": "将办公室事件（智能体通知）POST 到 Zapier catch hook、n8n webhook 或任意 HTTPS 端点——通向下游一切的桥梁。",
+    "label": "标签",
+    "url": "Webhook URL",
+    "add": "添加 Webhook",
+    "test": "测试",
+    "testOk": "已发送（{{status}}）",
+    "testFail": "失败",
+    "added": "已添加 Webhook",
+    "couldNotSave": "无法保存",
+    "errFields": "需要填写标签和 URL。"
+  },
   "commandCenter": {
     "title": "命令中心",
     "runsTheFloor": "{{name}} 掌管楼层",
@@ -1257,6 +1270,7 @@
     "label": "标签",
     "kind": {
       "obsidian": "Obsidian 库",
+      "photos": "照片文件夹",
       "chat-export": "ChatGPT/Claude 导出",
       "notion": "Notion（通过 OAuth）"
     },
@@ -1282,6 +1296,9 @@
     "errLabel": "需要填写标签。",
     "errVault": "请选择 Obsidian 库文件夹。",
     "errFile": "请选择导出文件。",
+    "photoFolder": "照片文件夹",
+    "photoHint": "按名称、路径和日期为每张照片建立索引，便于按含义查找（暂无视觉模型）。",
+    "errFolder": "请选择照片文件夹。",
     "errConnector": "请选择一个 OAuth 连接器。"
   },
   "integrations": {

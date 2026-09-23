@@ -20,6 +20,7 @@ import { Icon } from './Icon';
 import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
+import { OutboundWebhooksSection } from './OutboundWebhooksSection';
 import { UserProfileSection } from './UserProfileSection';
 import { MemorySourcesPanel } from './MemorySourcesPanel';
 import { sanitizeUserProfile, type UserProfile } from '@shared/userProfile';
@@ -1459,6 +1460,11 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           Leads the section; the hardcoded Slack/Webhook/Free Flow
                           blocks below stay as-is. */}
                       <IntegrationsRegistry />
+
+                      <div style={sectionRule} />
+
+                      {/* Outbound webhooks (Fase 5 — Zapier/n8n bridge) */}
+                      <OutboundWebhooksSection />
 
                       <div style={sectionRule} />
 

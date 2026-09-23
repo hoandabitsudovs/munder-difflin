@@ -130,6 +130,7 @@ export class MemorySourcesManager {
       if (rec.kind === 'obsidian') docCount = await ingestObsidian(rec.config.vaultPath, dir);
       else if (rec.kind === 'chat-export') docCount = await ingestChatExport(rec.config.filePath, rec.config.format ?? 'auto', dir);
       else if (rec.kind === 'notion') docCount = await ingestNotion(rec.config.integrationId, dir, this.deps.getOAuthAccessToken);
+      else if (rec.kind === 'photos') docCount = await ingestPhotos(rec.config.folderPath, dir);
 
       if (docCount === 0) {
         this.patchRecord(id, { lastError: 'no documents found to ingest', docCount: 0 });
@@ -189,6 +190,52 @@ async function ingestObsidian(vaultPath: string, outDir: string): Promise<number
     const name = `${safeDocName(rel.replace(/\.md$/i, '').split(sep).join(' / '), `note-${count}`)}.md`;
     const header = `# ${rel}\n\n_Source: Obsidian vault_\n\n`;
     try { await writeFile(join(outDir, `${count}-${name}`), header + content, 'utf8'); count += 1; } catch { /* skip */ }
+  }
+  return count;
+}
+
+/** Photos (Fase 5): index a local photo folder by METADATA. No vision model — each
+ *  image becomes a small markdown doc (name, vault-relative path, folder, date, size)
+ *  mined into the palace, so a semantic search finds photos by their name/path/context.
+ *  A caption/vision pass could enrich this later; this keeps it fully local + free. */
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff']);
+async function ingestPhotos(folderPath: string, outDir: string): Promise<number> {
+  if (!existsSync(folderPath)) throw new Error(`photo folder not found: ${folderPath}`);
+  const found: { path: string; size: number; mtime: number }[] = [];
+  const skipDirs = new Set(['.git', 'node_modules', '.thumbnails', '@eaDir']);
+  async function walk(dir: string): Promise<void> {
+    if (found.length >= MAX_DOCS) return;
+    let entries: import('node:fs').Dirent[];
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      if (found.length >= MAX_DOCS) return;
+      if (ent.isDirectory()) { if (!skipDirs.has(ent.name)) await walk(join(dir, ent.name)); continue; }
+      const dot = ent.name.lastIndexOf('.');
+      const ext = dot >= 0 ? ent.name.slice(dot).toLowerCase() : '';
+      if (!ent.isFile() || !IMAGE_EXTS.has(ext)) continue;
+      const full = join(dir, ent.name);
+      try { const st = await stat(full); found.push({ path: full, size: st.size, mtime: st.mtimeMs }); } catch { /* skip */ }
+    }
+  }
+  await walk(folderPath);
+
+  let count = 0;
+  for (const img of found) {
+    const rel = relative(folderPath, img.path);
+    const folder = rel.split(sep).slice(0, -1).join(' / ') || '(root)';
+    const nameNoExt = rel.split(sep).pop()?.replace(/\.[^.]+$/, '') ?? rel;
+    const date = new Date(img.mtime).toISOString().slice(0, 10);
+    const md = [
+      `# ${nameNoExt}`,
+      '',
+      '_Source: Photos_',
+      '',
+      `- Path: ${rel}`,
+      `- Folder: ${folder}`,
+      `- Date: ${date}`,
+      `- Size: ${Math.round(img.size / 1024)} KB`
+    ].join('\n');
+    try { await writeFile(join(outDir, `${count}-${safeDocName(nameNoExt, `photo-${count}`)}.md`), md, 'utf8'); count += 1; } catch { /* skip */ }
   }
   return count;
 }

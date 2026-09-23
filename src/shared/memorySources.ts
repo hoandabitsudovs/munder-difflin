@@ -14,9 +14,9 @@
  * `integrationId` (Fase 0.2); the token bundle stays in the encrypted secret store.
  */
 
-export type MemorySourceKind = 'obsidian' | 'chat-export' | 'notion';
+export type MemorySourceKind = 'obsidian' | 'chat-export' | 'notion' | 'photos';
 
-export const ALL_MEMORY_SOURCE_KINDS: readonly MemorySourceKind[] = ['obsidian', 'chat-export', 'notion'];
+export const ALL_MEMORY_SOURCE_KINDS: readonly MemorySourceKind[] = ['obsidian', 'chat-export', 'notion', 'photos'];
 
 /** A local Obsidian vault (folder of .md notes). Fully local, no credentials. */
 export interface ObsidianConfig { vaultPath: string }
@@ -24,6 +24,9 @@ export interface ObsidianConfig { vaultPath: string }
 export interface ChatExportConfig { filePath: string; format?: 'auto' | 'chatgpt' | 'claude' }
 /** A Notion workspace reached through an OAuth integration (Fase 0.2). */
 export interface NotionConfig { integrationId: string }
+/** A local folder of photos (Fase 5). Each image is indexed by its metadata
+ *  (name/path/folder/date) so it is recallable by meaning through the palace. */
+export interface PhotosConfig { folderPath: string }
 
 interface MemorySourceBase {
   /** Stable lowercase slug, unique. */
@@ -45,7 +48,8 @@ interface MemorySourceBase {
 export type MemorySource =
   | (MemorySourceBase & { kind: 'obsidian'; config: ObsidianConfig })
   | (MemorySourceBase & { kind: 'chat-export'; config: ChatExportConfig })
-  | (MemorySourceBase & { kind: 'notion'; config: NotionConfig });
+  | (MemorySourceBase & { kind: 'notion'; config: NotionConfig })
+  | (MemorySourceBase & { kind: 'photos'; config: PhotosConfig });
 
 /** Runtime ingest status surfaced to the UI (merged with the persisted record). */
 export interface MemorySourceStatus {
@@ -118,6 +122,11 @@ export function validateMemorySource(
       const integrationId = typeof cfg.integrationId === 'string' ? cfg.integrationId.trim() : '';
       if (!integrationId) return { ok: false, error: 'notion: integrationId (an OAuth connector) is required' };
       return { ok: true, value: { ...base, kind, config: { integrationId } } };
+    }
+    case 'photos': {
+      const folderPath = typeof cfg.folderPath === 'string' ? cfg.folderPath.trim() : '';
+      if (!folderPath) return { ok: false, error: 'photos: folderPath is required' };
+      return { ok: true, value: { ...base, kind, config: { folderPath } } };
     }
     default:
       return { ok: false, error: 'unknown kind' };
