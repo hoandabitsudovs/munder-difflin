@@ -38,7 +38,7 @@ export const colors = {
   status: {
     idle: 0xa199ab,
     thinking: 0x4f9faf,
-    working: 0xdcab3c,
+    working: 0x0a84ff, /* v0.5: was amber — now the blue accent */
     blocked: 0xd96a62,
     success: 0x5ca97a,
     ghost: 0xd9d3de

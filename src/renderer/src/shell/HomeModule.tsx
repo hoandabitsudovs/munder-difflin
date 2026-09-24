@@ -70,8 +70,8 @@ export function HomeModule({ userName, goals: userGoals, onOpenModule }: {
           <div className={eyebrow}>Voz que ejecuta</div>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', margin: '10px 0 4px' }}>Decilo y pasa</div>
           <div style={{ fontSize: 13, color: 'var(--g-ink-3)', marginBottom: 16 }}>Comando de voz → acción real</div>
-          <div style={{ borderRadius: 13, padding: '11px 14px', fontSize: 13.5, color: 'var(--g-ink-2)', marginBottom: 10, background: 'rgba(15,23,42,.04)' }}>“Agendá reunión mañana 3pm”</div>
-          <div style={{ borderRadius: 13, padding: '11px 14px', fontSize: 13.5, color: 'var(--g-ink-2)', background: 'rgba(15,23,42,.04)' }}>“Mandá a Jim a investigar el bug”</div>
+          <div style={{ borderRadius: 13, padding: '11px 14px', fontSize: 13.5, color: 'var(--g-ink-2)', marginBottom: 10, background: 'var(--g-soft)' }}>“Agendá reunión mañana 3pm”</div>
+          <div style={{ borderRadius: 13, padding: '11px 14px', fontSize: 13.5, color: 'var(--g-ink-2)', background: 'var(--g-soft)' }}>“Mandá a Jim a investigar el bug”</div>
         </div>
 
         {/* Module tiles */}
@@ -100,7 +100,7 @@ export function HomeModule({ userName, goals: userGoals, onOpenModule }: {
           {rosterGoals.length > 0 ? rosterGoals.map((a) => (
             <div key={a.id} style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, marginBottom: 6 }}><span>{a.name}</span><span style={{ color: 'var(--g-ink-3)' }}>{Math.max(0, Math.min(100, Math.round(a.progress ?? 0)))}%</span></div>
-              <div style={{ height: 6, borderRadius: 5, background: 'rgba(15,23,42,.08)' }}><i style={{ display: 'block', height: '100%', width: `${Math.max(0, Math.min(100, Math.round(a.progress ?? 0)))}%`, borderRadius: 5, background: accent }} /></div>
+              <div style={{ height: 6, borderRadius: 5, background: 'var(--g-soft)' }}><i style={{ display: 'block', height: '100%', width: `${Math.max(0, Math.min(100, Math.round(a.progress ?? 0)))}%`, borderRadius: 5, background: accent }} /></div>
             </div>
           )) : <div style={{ fontSize: 13, color: 'var(--g-ink-3)' }}>Ningún agente tiene objetivo asignado todavía.</div>}
         </div>

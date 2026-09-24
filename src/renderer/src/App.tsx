@@ -352,80 +352,7 @@ export function App() {
         }}>
           Agentic OS <span style={{ color: 'var(--cth-ink-500)', fontWeight: 500 }}>v1.1</span>
         </span>
-        {/* v0.3.4: theme + fullscreen live HERE (top right), not buried in the
-            terminal header — and the theme darkens the whole app, terminals
-            included (design/theme.ts + tokens.css dark block). */}
-        {/* Appearance: cycles Light → Dark → Auto. Auto follows the local time
-            (dark once the sun is down). The terminal + config side-effects run in a
-            useEffect on the RESOLVED theme, so an Auto sunset flip propagates too. */}
-        <button
-          className="cth-titlebar-nodrag cth-tip"
-          onClick={() => { cycleAppThemeMode(); }}
-          data-tip={appThemeMode === 'light' ? 'Apariencia: Claro (clic → Oscuro)'
-            : appThemeMode === 'dark' ? 'Apariencia: Oscuro (clic → Automático)'
-            : 'Apariencia: Automático (clic → Claro)'}
-          aria-label="Cambiar apariencia (claro / oscuro / automático)"
-          style={{
-            marginLeft: 'auto',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            gap: 5, minWidth: 28, height: 28, padding: '0 8px',
-            background: 'var(--cth-paper-100)',
-            boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-            border: 'none', borderRadius: 8, cursor: 'pointer',
-            color: 'var(--cth-ink-900)', fontSize: 13, lineHeight: 1
-          }}
-        >
-          <span>{appThemeMode === 'light' ? '☀' : appThemeMode === 'dark' ? '☾' : '◐'}</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cth-ink-500)' }}>
-            {appThemeMode === 'light' ? 'Claro' : appThemeMode === 'dark' ? 'Oscuro' : 'Auto'}
-          </span>
-        </button>
-        {/* v0.3.4: the IDE button moved to agent level — every agent's header
-            (sidebar detail, god Command Center, fullscreen) carries it. */}
-        <button
-          className="cth-titlebar-nodrag cth-settings-btn cth-tip"
-          onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
-          data-tip="Settings"
-          aria-label="Settings"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, padding: 0,
-            background: 'var(--cth-paper-100)',
-            boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-            border: 'none', borderRadius: 2, cursor: 'pointer',
-            color: 'var(--cth-ink-900)'
-          }}
-        >
-          <GearGlyph />
-        </button>
-        {/* Fullscreen. The title bar is chrome, not canvas, so these two use
-            clean stroke icons rather than the 16x16 pixel set the rest of the UI
-            is drawn in — at 16-18px a pixel-grid glyph reads as a rendering
-            artifact next to the OS window controls, not as a style choice. */}
-        <button
-          className="cth-titlebar-nodrag cth-tip"
-          onClick={() => {
-            if (fullscreenAgentId) { useStore.getState().setFullscreen(null); return; }
-            const all = useStore.getState().agents;
-            const target = all.find((x) => x.id === useStore.getState().selectedId && x.ptyId)
-              ?? all.find((x) => x.isGod && x.ptyId)
-              ?? all.find((x) => x.ptyId);
-            if (target) useStore.getState().setFullscreen(target.id);
-          }}
-          data-tip={fullscreenAgentId ? 'Exit focus mode (Esc)' : 'Focus mode'}
-          aria-label="Toggle focus mode"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, padding: 0,
-            background: 'var(--cth-paper-100)',
-            boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-            border: 'none', borderRadius: 2, cursor: 'pointer',
-            color: 'var(--cth-ink-900)'
-          }}
-        >
-          {fullscreenAgentId ? <CollapseGlyph /> : <ExpandGlyph />}
-        </button>
-
+        {/* Appearance, Settings and Focus controls moved into the left rail. */}
       </div>
 
       <div className="os-shell" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
@@ -436,6 +363,17 @@ export function App() {
           onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
           userName={config.userProfile?.name}
           memoryDot={agentCount > 0}
+          themeMode={appThemeMode}
+          onCycleTheme={() => { cycleAppThemeMode(); }}
+          focusOn={!!fullscreenAgentId}
+          onToggleFocus={() => {
+            if (fullscreenAgentId) { useStore.getState().setFullscreen(null); return; }
+            const all = useStore.getState().agents;
+            const target = all.find((x) => x.id === useStore.getState().selectedId && x.ptyId)
+              ?? all.find((x) => x.isGod && x.ptyId)
+              ?? all.find((x) => x.ptyId);
+            if (target) useStore.getState().setFullscreen(target.id);
+          }}
         />
 
         {activeModule === 'inicio' && (

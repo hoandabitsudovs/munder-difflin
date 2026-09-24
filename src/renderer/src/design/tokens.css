@@ -36,14 +36,14 @@
   /* Status — same recalibration; hue meanings unchanged */
   --cth-status-idle:     #A199AB;
   --cth-status-thinking: #4F9FAF;
-  --cth-status-working:  #DCAB3C;
+  --cth-status-working:  #0A84FF; /* v0.5: was amber — now the single blue accent */
   --cth-status-waiting:  #6D87D6;
-  --cth-status-blocked:  #D96A62;
-  --cth-status-success:  #5CA97A;
+  --cth-status-blocked:  #D96A62; /* kept red — "needs you" must stand out */
+  --cth-status-success:  #5CA97A; /* kept green — done */
   --cth-status-ghost:    #D9D3DE;
-  --cth-status-compacting: #8F7CC7; /* #5C — mid-/compact, "boxing up context" */
-  --cth-status-looping:    #D6903F; /* #5C — circuit-breaker armed (runaway) */
-  --cth-status-typing:     #C89838; /* unsent text on the prompt — queue is held */
+  --cth-status-compacting: #0A84FF; /* v0.5: was violet — now blue */
+  --cth-status-looping:    #D96A62; /* runaway/breaker — folded into the alert red */
+  --cth-status-typing:     #0A84FF; /* v0.5: was amber — now blue */
 
   /* Spacing */
   --cth-space-0: 0px;
@@ -168,16 +168,16 @@
   /* Status — dark-tuned counterparts (same hue language) */
   --cth-status-idle:     #6F6C77;
   --cth-status-thinking: #64ACBB;
-  --cth-status-working:  #D8B052;
+  --cth-status-working:  #5AA8FF; /* v0.5: was amber — now blue */
   --cth-status-waiting:  #8095DC;
   --cth-status-blocked:  #DF8078;
   --cth-status-success:  #6FB88B;
   /* The quietest status, but still a MARK the user must be able to find — at
      the old #3D3C44 it measured 1.54:1 on the new ground and simply vanished. */
   --cth-status-ghost:    #6C6A76;
-  --cth-status-compacting: #9D8BD2;
-  --cth-status-looping:    #D69A55;
-  --cth-status-typing:     #CBA24A;
+  --cth-status-compacting: #5AA8FF; /* v0.5: was violet — now blue */
+  --cth-status-looping:    #DF8078; /* runaway/breaker — folded into alert red */
+  --cth-status-typing:     #5AA8FF; /* v0.5: was amber — now blue */
 
   /* Hard shadow reads as depth, not void */
   --cth-shadow-hard: 4px 4px 0 rgba(0, 0, 0, 0.45);
