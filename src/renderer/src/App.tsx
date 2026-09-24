@@ -22,7 +22,6 @@ import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
 import { CompletionToast } from '@/realtime/CompletionToast';
 import { UpdateToast } from '@/components/UpdateToast';
-import { UpdateBadge } from '@/components/UpdateBadge';
 import { useAppTheme, toggleAppTheme } from '@/design/theme';
 import { SettingsModal, type Section as SettingsSection } from '@/components/SettingsModal';
 import { PixelPanel } from '@/components/PixelPanel';
@@ -34,7 +33,6 @@ import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
-import brandLogo from '@brand/logo.png?url';
 // Liquid Glass platform shell (new): a module rail + Home dashboard; the office is
 // one module. Scoped under .os-shell so it never touches the office/terminal theme.
 import '@/shell/shell.css';
@@ -332,20 +330,14 @@ export function App() {
           userSelect: 'none'
         }}
       >
-        <img
-          src={brandLogo}
-          alt="Munder Difflin"
-          style={{ height: 20, width: 'auto', display: 'block' }}
-        />
-        {/* v0.3.7: the version is no longer inert text — it doubles as the
-            update control (check / download / restart to update). */}
-        <UpdateBadge />
         <span style={{
           fontFamily: 'var(--cth-font-ui)',
-          fontSize: 13,
-          color: 'var(--cth-ink-500)'
+          fontSize: 14,
+          fontWeight: 600,
+          letterSpacing: '-.01em',
+          color: 'var(--cth-ink-900)'
         }}>
-          {config.autoMode ? 'auto mode on' : 'auto mode off'}
+          Agentic OS <span style={{ color: 'var(--cth-ink-500)', fontWeight: 500 }}>v1.1</span>
         </span>
         {/* v0.3.4: theme + fullscreen live HERE (top right), not buried in the
             terminal header — and the theme darkens the whole app, terminals
