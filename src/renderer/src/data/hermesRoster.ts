@@ -37,7 +37,7 @@ export interface HermesRosterEntry {
 
 // Each Hermes bot gets its own IMAJU character (cast.ts) — 20 available,
 // 17 needed, no repeats. 'michael' and the rest of the original Office cast
-// stay reserved for munder-difflin's own GOD agent / manually-hired agents.
+// stay reserved for Agentic OS IMAJU's own GOD agent / manually-hired agents.
 export const ROSTER: HermesRosterEntry[] = [
   { id: 'hermes-recepcionista', name: 'Recepcionista', role: 'Recepción', department: 'Dirección', character: 'paula' },
   { id: 'hermes-orquestador', name: 'Orquestador', role: 'CEO', department: 'Dirección', hermesProfile: 'orquestador', character: 'javier' },

@@ -165,11 +165,11 @@
     "reportProblem": "reportar un problema",
     "fullChangelog": "changelog completo →",
     "announcement": "Anuncio",
-    "proLaunch": "v0.5.0 se lanza con Munder Difflin Pro.",
+    "proLaunch": "v0.5.0 se lanza con Agentic OS IMAJU Pro.",
     "proCommunityFree": "La versión Community sigue gratis, sigue abierta y sigue recibiendo actualizaciones.",
     "proParagraph": "Pro trae nuevas funciones e integraciones, con más a lo largo del año, y se mantiene por delante de Community, para usuarios avanzados que quieren todo el potencial de los agentes de código. El roadmap de Pro también incluye una app móvil.",
     "foundersWallTitle": "¿Estás en el Muro de Fundadores?",
-    "foundersWallBody": "Un mes de Munder Difflin Pro gratis, luego 50% de descuento en el plan anual. Para las primeras 100 personas del muro.",
+    "foundersWallBody": "Un mes de Agentic OS IMAJU Pro gratis, luego 50% de descuento en el plan anual. Para las primeras 100 personas del muro.",
     "seeTheWall": "ver el muro",
     "joinDiscord": "unite a Discord"
   },
@@ -635,7 +635,7 @@
   },
   "onboarding": {
     "titles": {
-      "persona": "BIENVENIDO A MUNDER DIFFLIN",
+      "persona": "BIENVENIDO A AGENTIC OS IMAJU",
       "welcome": "CONOCÉ TU OFICINA",
       "home": "PASO 1 DE 4 · CASA DEL HARNESS",
       "homePlain": "PASO 1 DE 4 · UNA CASA PARA LA APP",
@@ -648,7 +648,7 @@
     },
     "persona": {
       "headline": "UN CLON DE VOS, TRABAJANDO 24/7",
-      "body": "Munder Difflin convierte el agente CLI que ya usás en un clon de vos — uno que maneja una oficina de agentes de larga duración y sigue trabajando mientras no estás. Se encarga de todo alrededor de ellos: contexto, memoria, tareas, disparadores, entorno, archivos e integraciones.",
+      "body": "Agentic OS IMAJU convierte el agente CLI que ya usás en un clon de vos — uno que maneja una oficina de agentes de larga duración y sigue trabajando mientras no estás. Se encarga de todo alrededor de ellos: contexto, memoria, tareas, disparadores, entorno, archivos e integraciones.",
       "bodyLocal": " Todo corre en esta máquina.",
       "ask": "PRIMERO — ¿QUIÉN SOS? (adaptamos la configuración)",
       "technicalTitle": "SOY TÉCNICO",
@@ -749,7 +749,7 @@
       "openAtLogin": "ABRIR AL INICIAR SESIÓN",
       "openAtLoginDesc": "Relanzá el harness después de un reinicio para que las misiones programadas se reanuden solas. Sin aviso — aplica de inmediato.",
       "shareStats": "COMPARTIR ESTADÍSTICAS DE USO ANÓNIMAS",
-      "shareStatsDesc": "Un puñado de eventos anónimos (app abierta, agente lanzado, función usada) que ayudan a mejorar Munder Difflin — nunca prompts, código, rutas de archivos, ni salida de agentes. Lista completa en TELEMETRY.md; cambialo cuando quieras en Ajustes.",
+      "shareStatsDesc": "Un puñado de eventos anónimos (app abierta, agente lanzado, función usada) que ayudan a mejorar Agentic OS IMAJU — nunca prompts, código, rutas de archivos, ni salida de agentes. Lista completa en TELEMETRY.md; cambialo cuando quieras en Ajustes.",
       "stayAwake": "MANTENER DESPIERTA EN CORRIENTE (MANUAL)",
       "stayAwakeDescMac": "macOS solo te deja configurar esto a vos mismo. En Batería → Opciones, activá \"Evitar que la Mac se suspenda automáticamente cuando la pantalla está apagada\" (con adaptador) para que los temporizadores sigan disparando con la pantalla suspendida. Sin un ajuste que evite la suspensión la Mac igual se suspende del todo — el trabajo sobrevive y se pone al día al despertar.",
       "stayAwakeDescWindows": "Windows solo te deja configurar esto a vos mismo. En Configuración → Sistema → Energía y batería → Pantalla, suspensión, poné \"Con batería, suspender el dispositivo\" y \"Al enchufar\" en Nunca (o aumentalos) para que los temporizadores sigan disparando. Sin un ajuste que evite la suspensión Windows igual se suspende del todo — el trabajo sobrevive y se pone al día al despertar.",
@@ -912,7 +912,7 @@
     "localEndpoint": "ENDPOINT LOCAL · MODELO POR DEFECTO (POR MOTOR)",
     "defaultModelPlaceholder": "modelo por defecto (proveedor/modelo)",
     "runningOpenModels": "¿Corriendo modelos abiertos? Guías paso a paso:",
-    "runOnOpenModels": "correr Munder Difflin en modelos abiertos",
+    "runOnOpenModels": "correr Agentic OS IMAJU en modelos abiertos",
     "setUpMacMini": "configurarlo en una Mac Mini",
     "autoModeCaveat": "⚠ En modo auto estos motores corren con acceso total al filesystem + shell (sin sandbox) — como el modo bypass de Claude. Desactivá el modo auto (General) para que pregunten primero. La verificación end-to-end en vivo con llamadas reales al modelo está pendiente de tus claves / un LLM local."
   },
@@ -962,7 +962,7 @@
     "downloadingHeadline": "Descargando v{{version}}",
     "downloadingDetail": "{{percent}}% completo. Podés seguir trabajando; el reinicio lo disparás vos.",
     "downloadedHeadline": "La v{{version}} está lista para instalar",
-    "downloadedDetail": "Reiniciá Munder Difflin para terminar de actualizar desde la v{{v}}.",
+    "downloadedDetail": "Reiniciá Agentic OS IMAJU para terminar de actualizar desde la v{{v}}.",
     "restartBtn": "Reiniciar para actualizar",
     "manualDetail": "Esta instalación no puede actualizarse sola — descargala desde la página del release.",
     "manualDetailReason": "Esta instalación no puede actualizarse sola ({{reason}}) — descargala desde la página del release.",
@@ -989,7 +989,7 @@
     "webhooks": "WEBHOOKS",
     "webhooksBlurb": "Dejá que un sistema externo postee trabajo.",
     "organisation": "ORGANIZACIÓN",
-    "organisationBlurb": "Dejá que el Munder Difflin de un compañero le escriba al tuyo."
+    "organisationBlurb": "Dejá que el Agentic OS IMAJU de un compañero le escriba al tuyo."
   },
   "orgSection": {
     "acceptMessages": "Aceptar mensajes de tu organización",

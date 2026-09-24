@@ -1,14 +1,15 @@
 {
-  "name": "munder-difflin",
+  "name": "agentic-os-imaju",
+  "productName": "Agentic OS IMAJU",
   "version": "0.5.2",
   "private": true,
-  "description": "Clones for you and your team, working 24/7 — a free, local-first multi-agent harness that turns the CLI coding agent you already run into a clone of you, coordinating an office of agents on your machine.",
+  "description": "Agentic OS IMAJU — un sistema operativo agéntico local-first para IMAJU: una plataforma multi-agente que coordina una oficina de agentes en tu máquina. La oficina isométrica es solo uno de sus módulos.",
   "main": "out/main/index.js",
-  "author": "Chaitanya Giri",
-  "homepage": "https://munderdiffl.in/",
+  "author": "IMAJU",
+  "homepage": "https://github.com/hoandabitsudovs/munder-difflin",
   "repository": {
     "type": "git",
-    "url": "https://github.com/chaitanyagiri/munder-difflin.git"
+    "url": "https://github.com/hoandabitsudovs/munder-difflin.git"
   },
   "scripts": {
     "dev": "electron-vite dev",

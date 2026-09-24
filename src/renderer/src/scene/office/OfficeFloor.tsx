@@ -180,7 +180,7 @@ export function OfficeFloor() {
   // than through a second, parallel recovery routine.
   const [glGeneration, setGlGeneration] = useState(0);
   // ISO retrofit: the office renders isometric. This is now the only view — the
-  // top-down munder-difflin tileset office is no longer shown. Kept as a const so
+  // top-down Agentic OS IMAJU tileset office is no longer shown. Kept as a const so
   // the projection switch stays in one obvious place.
   const isoMode = true;
   // Retries spent on an init that could not GET a context (see glRecovery.ts).

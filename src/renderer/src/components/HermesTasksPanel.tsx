@@ -35,7 +35,7 @@ const POLL_MS = 5000;
 
 /** Read-only view of Hermes' real kanban board (~/.hermes/kanban.db) — a
  *  window onto AOS/IMAJU's actual production task board, distinct from
- *  munder-difflin's own hive tasks (TasksKanban.tsx). No move/assign/delete
+ *  Agentic OS IMAJU's own hive tasks (TasksKanban.tsx). No move/assign/delete
  *  here on purpose: this panel only ever reads, same discipline as
  *  useHermesPoll.ts and src/main/hermesKanban.ts. */
 export function HermesTasksPanel() {

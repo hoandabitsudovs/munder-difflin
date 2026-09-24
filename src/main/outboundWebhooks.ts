@@ -12,7 +12,7 @@ import { readConfig, writeConfig } from './config';
 import { type OutboundWebhook, validateOutboundWebhook } from '../shared/outboundWebhooks';
 
 const FIRE_TIMEOUT_MS = 10_000;
-const USER_AGENT = 'munder-difflin-outbound/1';
+const USER_AGENT = 'agentic-os-imaju-outbound/1';
 
 export class OutboundWebhooksManager {
   list(): OutboundWebhook[] {
