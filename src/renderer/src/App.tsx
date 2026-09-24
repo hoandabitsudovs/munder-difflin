@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore, selectedAgent } from '@/store/store';
 import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import { startIsoDemoLoop, stopIsoDemoLoop } from '@/store/isoDemo';
@@ -22,7 +22,7 @@ import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
 import { CompletionToast } from '@/realtime/CompletionToast';
 import { UpdateToast } from '@/components/UpdateToast';
-import { useAppTheme, toggleAppTheme } from '@/design/theme';
+import { useAppTheme, useAppThemeMode, cycleAppThemeMode } from '@/design/theme';
 import { SettingsModal, type Section as SettingsSection } from '@/components/SettingsModal';
 import { PixelPanel } from '@/components/PixelPanel';
 import { PixelButton } from '@/components/PixelButton';
@@ -66,6 +66,19 @@ export function App() {
   const godStatus = useStore(s => s.godStatus);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const appThemeNow = useAppTheme();
+  const appThemeMode = useAppThemeMode();
+  // Propagate a RESOLVED-theme change (manual cycle OR an Auto sunset flip) to every
+  // running terminal + the harness config, without firing on the initial mount.
+  const prevThemeRef = useRef(appThemeNow);
+  useEffect(() => {
+    if (prevThemeRef.current === appThemeNow) return;
+    prevThemeRef.current = appThemeNow;
+    // xterm repaints its own cells; a TUI that painted panels with explicit colors is
+    // told via DEC 2031 (every pooled terminal, so background agents aren't stale).
+    notifyThemeChangeAll(appThemeNow === 'dark' ? 'dark' : 'light');
+    // Mirror into config so (re)spawned agents get the matching per-session theme.
+    void window.cth.updateConfig({ terminalTheme: appThemeNow });
+  }, [appThemeNow]);
   const sidebarWidth = useStore(s => s.sidebarWidth);
   const setSidebarWidth = useStore(s => s.setSidebarWidth);
   const ideOpen = useStore(s => s.ideOpen);
@@ -342,36 +355,30 @@ export function App() {
         {/* v0.3.4: theme + fullscreen live HERE (top right), not buried in the
             terminal header — and the theme darkens the whole app, terminals
             included (design/theme.ts + tokens.css dark block). */}
+        {/* Appearance: cycles Light → Dark → Auto. Auto follows the local time
+            (dark once the sun is down). The terminal + config side-effects run in a
+            useEffect on the RESOLVED theme, so an Auto sunset flip propagates too. */}
         <button
           className="cth-titlebar-nodrag cth-tip"
-          onClick={() => {
-            const next = toggleAppTheme();
-            // Tell every RUNNING program the theme flipped. xterm repaints its own
-            // cells, but a TUI that painted its panels with explicit colours keeps
-            // them until it redraws, which left OpenCode's boxes in the old palette
-            // until the agent restarted. Only programs that enabled DEC mode 2031
-            // are told, and it is every pooled terminal rather than the visible one,
-            // so a background agent is not stale when you switch to it.
-            notifyThemeChangeAll(next === 'dark' ? 'dark' : 'light');
-            // Mirror into the harness config: every agent (re)spawned from now
-            // on gets the matching `theme` in its per-session Claude settings,
-            // so the TUI's truecolor palette fits the terminal. Scoped to
-            // harness agents — the user's global Claude theme is never touched.
-            void window.cth.updateConfig({ terminalTheme: next });
-          }}
-          data-tip={appThemeNow === 'dark' ? 'Light theme' : 'Dark theme'}
-          aria-label="Toggle dark mode"
+          onClick={() => { cycleAppThemeMode(); }}
+          data-tip={appThemeMode === 'light' ? 'Apariencia: Claro (clic → Oscuro)'
+            : appThemeMode === 'dark' ? 'Apariencia: Oscuro (clic → Automático)'
+            : 'Apariencia: Automático (clic → Claro)'}
+          aria-label="Cambiar apariencia (claro / oscuro / automático)"
           style={{
             marginLeft: 'auto',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, padding: 0,
+            gap: 5, minWidth: 28, height: 28, padding: '0 8px',
             background: 'var(--cth-paper-100)',
             boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-            border: 'none', borderRadius: 2, cursor: 'pointer',
+            border: 'none', borderRadius: 8, cursor: 'pointer',
             color: 'var(--cth-ink-900)', fontSize: 13, lineHeight: 1
           }}
         >
-          {appThemeNow === 'dark' ? '☀' : '☾'}
+          <span>{appThemeMode === 'light' ? '☀' : appThemeMode === 'dark' ? '☾' : '◐'}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cth-ink-500)' }}>
+            {appThemeMode === 'light' ? 'Claro' : appThemeMode === 'dark' ? 'Oscuro' : 'Auto'}
+          </span>
         </button>
         {/* v0.3.4: the IDE button moved to agent level — every agent's header
             (sidebar detail, god Command Center, fullscreen) carries it. */}

@@ -22,12 +22,16 @@
      The originals (#FFD93D, #FF6B6B, …) were full-saturation arcade tones that
      read as noise at UI density; these sit in the calmer band that products
      like Linear/Radix use — recognizable color, no glare. */
-  --cth-coral: #D96A62;       --cth-coral-light: #F3D3CD;
-  --cth-mint:  #5CA97A;       --cth-mint-light:  #D2E7DA;
-  --cth-sky:   #4F9FAF;       --cth-sky-light:   #CFE5E9;
-  --cth-lemon: #DCAB3C;       --cth-lemon-light: #F3E4BC;
-  --cth-lilac: #9482D3;       --cth-lilac-light: #E0DAF2;
-  --cth-peach: #D99168;       --cth-peach-light: #F3DACA;
+  /* v0.5 retone: a SINGLE accent (Apple blue) for the whole UI — the rainbow of
+     coral/mint/sky/lemon/lilac/peach (active tabs, role badges, per-agent accents,
+     selections) all collapse to one blue so nothing reads as a stray color. Status
+     tokens below stay semantic (needs-you/blocked etc. must still stand out). */
+  --cth-coral: #0A84FF;       --cth-coral-light: #DCEBFF;
+  --cth-mint:  #0A84FF;       --cth-mint-light:  #DCEBFF;
+  --cth-sky:   #0A84FF;       --cth-sky-light:   #DCEBFF;
+  --cth-lemon: #0A84FF;       --cth-lemon-light: #DCEBFF;
+  --cth-lilac: #0A84FF;       --cth-lilac-light: #DCEBFF;
+  --cth-peach: #0A84FF;       --cth-peach-light: #DCEBFF;
 
   /* Status — same recalibration; hue meanings unchanged */
   --cth-status-idle:     #A199AB;
@@ -146,20 +150,20 @@
   --cth-ink-300: #787684;   /*  3.4-4.0:1  — BORDERS. must stay >= 3.0 */
   --cth-ink-100: #3E3D46;   /*  1.4-1.7:1  — dividers, meant to recede */
 
-  /* Accents — one step lighter/softer than the light set so they read on dark
-     without fluorescing */
-  --cth-coral: #E08C82;       --cth-mint:  #74C096;
-  --cth-sky:   #6FB3C4;       --cth-lemon: #CFAA57;
-  --cth-lilac: #A896E3;       --cth-peach: #DFA57F;
+  /* v0.5 retone: single blue accent (dark-tuned), matching the light theme's
+     collapse of the rainbow to one color. */
+  --cth-coral: #5AA8FF;       --cth-mint:  #5AA8FF;
+  --cth-sky:   #5AA8FF;       --cth-lemon: #5AA8FF;
+  --cth-lilac: #5AA8FF;       --cth-peach: #5AA8FF;
 
-  /* Accent "-light" fills double as chip/selection backgrounds — deep muted
-     versions so light text (ink-900) stays readable on top. */
-  --cth-coral-light: #3B2724;
-  --cth-mint-light:  #1E3227;
-  --cth-sky-light:   #1F3238;
-  --cth-lemon-light: #332C1D;
-  --cth-lilac-light: #2B2740;
-  --cth-peach-light: #352822;
+  /* Accent "-light" fills double as chip/selection backgrounds — a deep blue so
+     light text (ink-900) stays readable on top. */
+  --cth-coral-light: #16304D;
+  --cth-mint-light:  #16304D;
+  --cth-sky-light:   #16304D;
+  --cth-lemon-light: #16304D;
+  --cth-lilac-light: #16304D;
+  --cth-peach-light: #16304D;
 
   /* Status — dark-tuned counterparts (same hue language) */
   --cth-status-idle:     #6F6C77;

@@ -20,20 +20,20 @@ export const colors = {
     300: 0xaab2c2,
     100: 0xdde3ec
   },
-  // v0.3.4 recalibration: same hues, professional saturation (mirrors tokens.css)
+  // v0.5 retone: single Apple-blue accent for the whole UI (mirrors tokens.css).
   accent: {
-    coral: 0xd96a62,
-    coralLight: 0xf3d3cd,
-    mint: 0x5ca97a,
-    mintLight: 0xd2e7da,
-    sky: 0x4f9faf,
-    skyLight: 0xcfe5e9,
-    lemon: 0xdcab3c,
-    lemonLight: 0xf3e4bc,
-    lilac: 0x9482d3,
-    lilacLight: 0xe0daf2,
-    peach: 0xd99168,
-    peachLight: 0xf3daca
+    coral: 0x0a84ff,
+    coralLight: 0xdcebff,
+    mint: 0x0a84ff,
+    mintLight: 0xdcebff,
+    sky: 0x0a84ff,
+    skyLight: 0xdcebff,
+    lemon: 0x0a84ff,
+    lemonLight: 0xdcebff,
+    lilac: 0x0a84ff,
+    lilacLight: 0xdcebff,
+    peach: 0x0a84ff,
+    peachLight: 0xdcebff
   },
   status: {
     idle: 0xa199ab,
