@@ -149,20 +149,23 @@ export function SettingsHeroCard() {
           </div>
         </div>
 
-        {/* Founders' Wall offer. */}
+        {/* Founders' Wall offer. Fixed dark navy in BOTH themes — it used to use
+            `INK` as the background, but INK is a TEXT token that inverts to near-white
+            in dark mode, so the card turned light-on-dark. */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
           padding: '12px 14px',
-          background: INK, color: 'var(--cth-paper-100)',
+          background: '#101728', color: '#ffffff',
+          border: '1px solid rgba(255,255,255,.10)',
           marginTop: 2
         }}>
           <div style={{
             fontFamily: MONO, fontSize: 30, fontWeight: 700, lineHeight: 0.9,
-            letterSpacing: '-.05em', color: 'var(--cth-lemon)', textAlign: 'center', flexShrink: 0
+            letterSpacing: '-.05em', color: '#5aa8ff', textAlign: 'center', flexShrink: 0
           }}>
             50<span style={{
               display: 'block', fontSize: 8, letterSpacing: '.2em', fontWeight: 500,
-              color: 'var(--cth-paper-100)', opacity: 0.7, marginTop: 5
+              color: '#ffffff', opacity: 0.7, marginTop: 5
             }}>% OFF</span>
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
