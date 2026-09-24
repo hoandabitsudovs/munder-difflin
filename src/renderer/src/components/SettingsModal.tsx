@@ -173,7 +173,7 @@ function clearLocalState(): void {
    seventeen times, in three slightly different forms, which is how a tab ends
    up looking subtly unlike its neighbours. */
 const sectionHead = {
-  fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+  fontFamily: 'var(--cth-font-display)', fontSize: 11, lineHeight: '16px', letterSpacing: '.08em',
   color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
 } as const;
 /** Same heading, tight under a section that supplies its own spacing. */
@@ -960,9 +960,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           borderLeft: active ? '3px solid var(--cth-lemon)' : '3px solid transparent',
                           background: active ? 'var(--cth-ink-900)' : 'transparent',
                           color: active ? 'var(--cth-cream-50)' : 'var(--cth-ink-700)',
-                          fontFamily: 'var(--cth-font-display)',
-                          fontSize: 8,
-                          lineHeight: '12px',
+                          fontFamily: 'var(--cth-font-ui)',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          lineHeight: '20px',
                           cursor: 'pointer',
                           letterSpacing: 0
                         }}
