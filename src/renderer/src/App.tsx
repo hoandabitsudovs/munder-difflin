@@ -35,6 +35,18 @@ import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 import brandLogo from '@brand/logo.png?url';
+// Liquid Glass platform shell (new): a module rail + Home dashboard; the office is
+// one module. Scoped under .os-shell so it never touches the office/terminal theme.
+import '@/shell/shell.css';
+import { OsIconDefs } from '@/shell/icons';
+import { ModuleRail, type ModuleId } from '@/shell/ModuleRail';
+import { HomeModule } from '@/shell/HomeModule';
+import { ModuleView } from '@/shell/ModuleView';
+import { MemorySourcesPanel } from '@/components/MemorySourcesPanel';
+import { IntegrationsRegistry } from '@/components/IntegrationsRegistry';
+import { OutboundWebhooksSection } from '@/components/OutboundWebhooksSection';
+import { GoalsTab } from '@/components/GoalsTab';
+import { MediaGalleryPanel } from '@/components/MediaGalleryPanel';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
 declare const __APP_VERSION__: string;
@@ -64,6 +76,9 @@ export function App() {
   const [config, setConfig] = useState<HarnessConfig | null>(null);
   // Point every {{userName}}/{{userBusiness}}/… string at the live profile (Fase 0.1).
   useUserProfileSync(config?.userProfile);
+  // Which platform module is showing (Liquid Glass shell). 'oficina' is the classic
+  // office+command-center view; 'inicio' is the new home dashboard.
+  const [activeModule, setActiveModule] = useState<ModuleId>('inicio');
   // Whether the user has passed the launch-time hive picker this session. Starts
   // true (skip the picker) right after a hive SWITCH — changeHome relaunches and
   // leaves a one-shot localStorage flag so we don't bounce back onto the picker for
@@ -414,7 +429,37 @@ export function App() {
 
       </div>
 
-      <div style={{
+      <div className="os-shell" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <OsIconDefs />
+        <ModuleRail
+          active={activeModule}
+          onSelect={setActiveModule}
+          onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
+          userName={config.userProfile?.name}
+          memoryDot={agentCount > 0}
+        />
+
+        {activeModule === 'inicio' && (
+          <HomeModule userName={config.userProfile?.name} goals={config.userProfile?.goals} onOpenModule={setActiveModule} />
+        )}
+        {activeModule === 'memoria' && (
+          <ModuleView title="Memoria" subtitle="Traé conocimiento externo a la memoria del equipo"><MemorySourcesPanel /></ModuleView>
+        )}
+        {activeModule === 'conexiones' && (
+          <ModuleView title="Conexiones" subtitle="Conectores OAuth y webhooks salientes">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}><IntegrationsRegistry /><OutboundWebhooksSection /></div>
+          </ModuleView>
+        )}
+        {activeModule === 'objetivos' && (
+          <ModuleView title="Objetivos"><GoalsTab /></ModuleView>
+        )}
+        {activeModule === 'creativo' && (
+          <ModuleView title="Creativo" subtitle="Generá imágenes y video"><MediaGalleryPanel /></ModuleView>
+        )}
+
+        {activeModule === 'oficina' && (
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{
         flex: 1, minHeight: 0,
         display: 'flex',
         padding: 16,
@@ -499,7 +544,10 @@ export function App() {
         </div>
       </div>
 
-      <AgentStrip config={config} />
+        <AgentStrip config={config} />
+        </div>
+        )}
+      </div>
 
       {addAgentOpen && (
         <AddAgentModal
